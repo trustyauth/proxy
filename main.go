@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"os"
 
 	"gopkg.in/yaml.v3"
@@ -24,9 +25,15 @@ func run(args []string) error {
 		return err
 	}
 
-	_, err = ReadConfig(*configFlag)
+	config, err := ReadConfig(*configFlag)
 	if err != nil {
 		return err
+	}
+
+	svr := NewServer()
+	slog.Info("starting on port", "port", config.Port)
+	if err := http.ListenAndServe(fmt.Sprintf(":%d", config.Port), svr); err != nil {
+		slog.Error("failed to start server", "error", err)
 	}
 
 	return nil
@@ -34,8 +41,8 @@ func run(args []string) error {
 
 // Config represents a picket configuration file
 type Config struct {
-	// Address to listen for requests
-	Addr string `yaml:"addr"`
+	// Port to listen on
+	Port int `yaml:"port"`
 
 	// List of origin servers to forward requests to
 	Origins []*OriginConfig `yaml:"origins"`
@@ -63,4 +70,12 @@ func ReadConfig(filename string) (c Config, err error) {
 	}
 
 	return
+}
+
+func NewServer() *http.ServeMux {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", func(w http.ResponseWriter, req *http.Request) {
+		slog.Info("received request", "path", req.URL.Path)
+	})
+	return mux
 }

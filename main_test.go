@@ -11,7 +11,7 @@ func TestReadConfig(t *testing.T) {
 	t.Run("ReadConfig", func(t *testing.T) {
 		configFile := filepath.Join(t.TempDir(), "picket.yml")
 		if err := os.WriteFile(configFile, []byte(`
-addr: localhost:80
+port: 80
 origins:
   - path: /
     url: http://localhost:3000
@@ -24,7 +24,7 @@ origins:
 		c, err := ReadConfig(configFile)
 		if err != nil {
 			t.Fatal(err)
-		} else if got, want := c.Addr, "localhost:80"; got != want {
+		} else if got, want := c.Port, 80; got != want {
 			t.Fatalf("Addr=%v, want %v", got, want)
 		} else if got, want := c.Origins[0].Path, "/"; got != want {
 			t.Fatalf("Origin.Path=%v, want %v", got, want)

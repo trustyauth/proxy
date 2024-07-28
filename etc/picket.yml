@@ -1,4 +1,4 @@
-addr: localhost:80
+port: 80
 origins:
   - path: /
     url: http://localhost:3000
