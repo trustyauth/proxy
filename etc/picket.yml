@@ -1,6 +1,2 @@
 port: 80
-origins:
-  - path: /
-    url: http://localhost:3000
-  - path: /api
-    url: http://localhost:8080
+origin: http://localhost:5678

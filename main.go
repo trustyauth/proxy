@@ -3,9 +3,12 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"os"
+	"time"
 
 	"gopkg.in/yaml.v3"
 )
@@ -30,8 +33,12 @@ func run(args []string) error {
 		return err
 	}
 
-	svr := NewServer()
-	slog.Info("starting on port", "port", config.Port)
+	if config.Origin == "" {
+		return fmt.Errorf("must specify origin server")
+	}
+
+	svr := NewServer(config.Origin)
+	slog.Info(fmt.Sprintf("server is listening on port %d", config.Port))
 	if err := http.ListenAndServe(fmt.Sprintf(":%d", config.Port), svr); err != nil {
 		slog.Error("failed to start server", "error", err)
 	}
@@ -44,14 +51,8 @@ type Config struct {
 	// Port to listen on
 	Port int `yaml:"port"`
 
-	// List of origin servers to forward requests to
-	Origins []*OriginConfig `yaml:"origins"`
-}
-
-// OriginConfig represents a configuration that maps a relative path to an origin server
-type OriginConfig struct {
-	Path string `yaml:"path"`
-	URL  string `yaml:"url"`
+	// Origin server to forward requests to
+	Origin string `yaml:"origin"`
 }
 
 // ReadConfig unmarshals the config from a file
@@ -72,10 +73,48 @@ func ReadConfig(filename string) (c Config, err error) {
 	return
 }
 
-func NewServer() *http.ServeMux {
+// NewServer returns a new ServeMux with the appropriate handlers registered
+func NewServer(origin string) *http.ServeMux {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/", func(w http.ResponseWriter, req *http.Request) {
-		slog.Info("received request", "path", req.URL.Path)
-	})
+	mux.HandleFunc("/", proxyHandler(origin))
 	return mux
+}
+
+func proxyHandler(origin string) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, req *http.Request) {
+		start := time.Now()
+
+		originServerURL, err := url.Parse(origin)
+		if err != nil {
+			slog.Error("failed to parse origin", "error", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		req.Host = originServerURL.Host
+		req.URL.Host = originServerURL.Host
+		req.URL.Scheme = originServerURL.Scheme
+		req.RequestURI = ""
+
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			slog.Error("failed to proxy request to origin server", "error", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		status := resp.StatusCode
+		w.WriteHeader(status)
+		io.Copy(w, resp.Body)
+
+		end := time.Now()
+		slog.Info(req.URL.Path,
+			"ip", req.RemoteAddr,
+			"method", req.Method,
+			"protocol", req.Proto,
+			"status", status,
+			"ua", req.UserAgent(),
+			"duration", end.Sub(start),
+		)
+	}
 }
