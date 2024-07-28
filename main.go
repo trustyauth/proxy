@@ -1,26 +1,30 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"io"
+	"log"
 	"log/slog"
 	"net/http"
 	"net/url"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"gopkg.in/yaml.v3"
 )
 
 func main() {
-	if err := run(os.Args[1:]); err != nil {
+	if err := run(context.Background(), os.Args[1:]); err != nil {
 		slog.Error("something went wrong", "error", err)
 		os.Exit(1)
 	}
 }
 
-func run(args []string) error {
+func run(ctx context.Context, args []string) error {
 	fs := flag.NewFlagSet("picket", flag.ContinueOnError)
 	configFlag := fs.String("config", "", "config path")
 	err := fs.Parse(args)
@@ -37,10 +41,31 @@ func run(args []string) error {
 		return fmt.Errorf("must specify origin server")
 	}
 
-	svr := NewServer(config.Origin)
-	slog.Info(fmt.Sprintf("server is listening on port %d", config.Port))
-	if err := http.ListenAndServe(fmt.Sprintf(":%d", config.Port), svr); err != nil {
-		slog.Error("failed to start server", "error", err)
+	server, err := NewServer(&config)
+	if err != nil {
+		return err
+	}
+
+	done := make(chan os.Signal, 1)
+	signal.Notify(done, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
+
+	go func() {
+		log.Printf("server is listening on %s", config.Addr)
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			slog.Error("failed to start server", "error", err)
+		}
+	}()
+
+	<-done
+	slog.Info("server shutting down...")
+
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer func() {
+		cancel()
+	}()
+
+	if err := server.Shutdown(ctx); err != nil {
+		fmt.Fprintf(os.Stderr, "error shutting down server: %s\n", err)
 	}
 
 	return nil
@@ -48,8 +73,8 @@ func run(args []string) error {
 
 // Config represents a picket configuration file
 type Config struct {
-	// Port to listen on
-	Port int `yaml:"port"`
+	// Bind addr
+	Addr string `yaml:"addr"`
 
 	// Origin server to forward requests to
 	Origin string `yaml:"origin"`
@@ -74,26 +99,31 @@ func ReadConfig(filename string) (c Config, err error) {
 }
 
 // NewServer returns a new ServeMux with the appropriate handlers registered
-func NewServer(origin string) *http.ServeMux {
+func NewServer(config *Config) (*http.Server, error) {
+	originServerURL, err := url.Parse(config.Origin)
+	if err != nil {
+		slog.Error("failed to parse origin", "error", err)
+		return nil, err
+	}
+
 	mux := http.NewServeMux()
-	mux.HandleFunc("/", proxyHandler(origin))
-	return mux
+	mux.HandleFunc("/", proxyHandler(originServerURL))
+
+	server := http.Server{
+		Addr:    config.Addr,
+		Handler: mux,
+	}
+
+	return &server, nil
 }
 
-func proxyHandler(origin string) func(http.ResponseWriter, *http.Request) {
+func proxyHandler(origin *url.URL) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, req *http.Request) {
 		start := time.Now()
 
-		originServerURL, err := url.Parse(origin)
-		if err != nil {
-			slog.Error("failed to parse origin", "error", err)
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-
-		req.Host = originServerURL.Host
-		req.URL.Host = originServerURL.Host
-		req.URL.Scheme = originServerURL.Scheme
+		req.Host = origin.Host
+		req.URL.Host = origin.Host
+		req.URL.Scheme = origin.Scheme
 		req.RequestURI = ""
 
 		resp, err := http.DefaultClient.Do(req)
