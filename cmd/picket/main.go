@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -164,7 +163,7 @@ func logMiddleware(next func(http.ResponseWriter, *http.Request)) func(http.Resp
 func csrfMiddleware(key string, next func(http.ResponseWriter, *http.Request)) func(http.ResponseWriter, *http.Request) {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		if slices.Contains(protectedMethods, req.Method) {
-			err := validateCSRF(req, key)
+			err := picket.ValidateCSRFToken(req, key)
 			if err != nil {
 				slog.Error("failed to validate csrf", "error", err)
 				w.WriteHeader(http.StatusForbidden)
@@ -198,33 +197,6 @@ func proxyHandler(origin *url.URL) func(http.ResponseWriter, *http.Request) {
 		w.WriteHeader(status)
 		io.Copy(w, resp.Body)
 	}
-}
-
-func validateCSRF(req *http.Request, key string) error {
-	csrfHeader := req.Header.Get(picket.CSRFHeader)
-
-	if csrfHeader == "" {
-		return fmt.Errorf("missing %s header", picket.CSRFHeader)
-	}
-
-	csrfCookie, err := req.Cookie(picket.XSRFCookie)
-	if err != nil {
-		return err
-	}
-
-	if csrfCookie == nil {
-		return fmt.Errorf("missing %s cookie", picket.XSRFCookie)
-	}
-
-	if csrfHeader != csrfCookie.Value {
-		return errors.New("token mismatch")
-	}
-
-	if !picket.ValidateCSRFToken(csrfCookie.Value, key) {
-		return errors.New("invalid token")
-	}
-
-	return nil
 }
 
 func setCookie(w http.ResponseWriter, name, value string) {

@@ -1,6 +1,10 @@
 package picket
 
 import (
+	"errors"
+	"fmt"
+	"net/http"
+
 	"golang.org/x/net/xsrftoken"
 )
 
@@ -21,6 +25,29 @@ func NewCSRFToken(key string) *CSRFToken {
 }
 
 // ValidateCSRFToken validates a CSRF Token
-func ValidateCSRFToken(token, key string) bool {
-	return xsrftoken.Valid(token, key, "", "")
+func ValidateCSRFToken(req *http.Request, key string) error {
+	csrfHeader := req.Header.Get(CSRFHeader)
+
+	if csrfHeader == "" {
+		return fmt.Errorf("missing %s header", CSRFHeader)
+	}
+
+	csrfCookie, err := req.Cookie(XSRFCookie)
+	if err != nil {
+		return err
+	}
+
+	if csrfCookie == nil {
+		return fmt.Errorf("missing %s cookie", XSRFCookie)
+	}
+
+	if csrfHeader != csrfCookie.Value {
+		return errors.New("token mismatch")
+	}
+
+	if !xsrftoken.Valid(csrfCookie.Value, key, "", "") {
+		return errors.New("invalid token")
+	}
+
+	return nil
 }

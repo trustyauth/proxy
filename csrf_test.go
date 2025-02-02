@@ -1,6 +1,8 @@
 package picket
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"golang.org/x/net/xsrftoken"
@@ -25,15 +27,48 @@ func TestNewCSRFToken(t *testing.T) {
 }
 
 func TestValidateCSRFToken(t *testing.T) {
-	key := "test-key"
+	key := "supersecretkey"
 	csrfToken := NewCSRFToken(key)
 
-	if !ValidateCSRFToken(csrfToken.Token, key) {
-		t.Errorf("expected token to be valid")
-	}
+	t.Run("Valid Token", func(t *testing.T) {
+		req := httptest.NewRequest("POST", "/", nil)
+		req.Header.Set(CSRFHeader, csrfToken.Token)
+		req.AddCookie(&http.Cookie{Name: XSRFCookie, Value: csrfToken.Token})
 
-	invalidKey := "invalid-key"
-	if ValidateCSRFToken(csrfToken.Token, invalidKey) {
-		t.Errorf("expected token to be invalid with a different key")
-	}
+		err := ValidateCSRFToken(req, key)
+		if err != nil {
+			t.Errorf("expected token to be valid, got error: %v", err)
+		}
+	})
+
+	t.Run("Invalid Token", func(t *testing.T) {
+		req := httptest.NewRequest("POST", "/", nil)
+		req.Header.Set(CSRFHeader, "invalid-token")
+		req.AddCookie(&http.Cookie{Name: XSRFCookie, Value: csrfToken.Token})
+
+		err := ValidateCSRFToken(req, key)
+		if err == nil {
+			t.Errorf("expected token to be invalid")
+		}
+	})
+
+	t.Run("Missing Header", func(t *testing.T) {
+		req := httptest.NewRequest("POST", "/", nil)
+		req.AddCookie(&http.Cookie{Name: XSRFCookie, Value: csrfToken.Token})
+
+		err := ValidateCSRFToken(req, key)
+		if err == nil {
+			t.Errorf("expected error for missing header")
+		}
+	})
+
+	t.Run("Missing Cookie", func(t *testing.T) {
+		req := httptest.NewRequest("POST", "/", nil)
+		req.Header.Set(CSRFHeader, csrfToken.Token)
+
+		err := ValidateCSRFToken(req, key)
+		if err == nil {
+			t.Errorf("expected error for missing cookie")
+		}
+	})
 }
