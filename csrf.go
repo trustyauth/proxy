@@ -24,6 +24,23 @@ func NewCSRFToken(key string) *CSRFToken {
 	return &CSRFToken{Token: token}
 }
 
+// SetCookie sets the CSRF Token in the response cookie
+func (csrf *CSRFToken) SetCookie(w http.ResponseWriter) {
+	cookie := http.Cookie{
+		Name:     XSRFCookie,
+		Value:    csrf.Token,
+		Path:     "/",
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
+	}
+	http.SetCookie(w, &cookie)
+}
+
+// SetHeader sets the CSRF Token in the response header
+func (csrf *CSRFToken) SetHeader(w http.ResponseWriter) {
+	w.Header().Set(CSRFHeader, csrf.Token)
+}
+
 // ValidateCSRFToken validates a CSRF Token
 func ValidateCSRFToken(req *http.Request, key string) error {
 	csrfHeader := req.Header.Get(CSRFHeader)

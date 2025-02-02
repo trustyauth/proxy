@@ -171,8 +171,8 @@ func csrfMiddleware(key string, next func(http.ResponseWriter, *http.Request)) f
 			}
 		} else {
 			csrf := picket.NewCSRFToken(key)
-			setCookie(w, picket.XSRFCookie, csrf.Token)
-			setHeader(w, picket.CSRFHeader, csrf.Token)
+			csrf.SetCookie(w)
+			csrf.SetHeader(w)
 		}
 
 		next(w, req)
@@ -197,19 +197,4 @@ func proxyHandler(origin *url.URL) func(http.ResponseWriter, *http.Request) {
 		w.WriteHeader(status)
 		io.Copy(w, resp.Body)
 	}
-}
-
-func setCookie(w http.ResponseWriter, name, value string) {
-	cookie := http.Cookie{
-		Name:     name,
-		Value:    value,
-		Path:     "/",
-		Secure:   true,
-		SameSite: http.SameSiteLaxMode,
-	}
-	http.SetCookie(w, &cookie)
-}
-
-func setHeader(w http.ResponseWriter, name, value string) {
-	w.Header().Set(name, value)
 }
