@@ -14,6 +14,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/tjmcginnis/picket"
 	"gopkg.in/yaml.v3"
 )
 
@@ -78,6 +79,9 @@ type Config struct {
 
 	// Origin server to forward requests to
 	Origin string `yaml:"origin"`
+
+	// Signing key
+	Key string `yaml:"key"`
 }
 
 // ReadConfig unmarshals the config from a file
@@ -107,7 +111,7 @@ func NewServer(config *Config) (*http.Server, error) {
 	}
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/", proxyHandler(originServerURL))
+	mux.HandleFunc("/", proxyHandler(originServerURL, config.Key))
 
 	server := http.Server{
 		Addr:    config.Addr,
@@ -117,7 +121,7 @@ func NewServer(config *Config) (*http.Server, error) {
 	return &server, nil
 }
 
-func proxyHandler(origin *url.URL) func(http.ResponseWriter, *http.Request) {
+func proxyHandler(origin *url.URL, key string) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, req *http.Request) {
 		start := time.Now()
 
@@ -134,6 +138,11 @@ func proxyHandler(origin *url.URL) func(http.ResponseWriter, *http.Request) {
 		}
 
 		status := resp.StatusCode
+
+		csrf := picket.NewCSRFToken(key, "tyler@example.com", req.Method, req.URL.Path)
+		setCookie(w, picket.XSRFCookie, csrf.Token)
+		setHeader(w, picket.CSRFHeader, csrf.Token)
+
 		w.WriteHeader(status)
 		io.Copy(w, resp.Body)
 
@@ -147,4 +156,19 @@ func proxyHandler(origin *url.URL) func(http.ResponseWriter, *http.Request) {
 			"duration", end.Sub(start),
 		)
 	}
+}
+
+func setCookie(w http.ResponseWriter, name, value string) {
+	cookie := http.Cookie{
+		Name:     name,
+		Value:    value,
+		Path:     "/",
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
+	}
+	http.SetCookie(w, &cookie)
+}
+
+func setHeader(w http.ResponseWriter, name, value string) {
+	w.Header().Set(name, value)
 }

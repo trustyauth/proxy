@@ -13,6 +13,7 @@ func TestReadConfig(t *testing.T) {
 		if err := os.WriteFile(configFile, []byte(`
 addr: :80
 origin: http://localhost:3000
+key: supersecretkey
 `[1:]), fs.ModePerm); err != nil {
 			t.Fatal(err)
 		}
@@ -24,6 +25,8 @@ origin: http://localhost:3000
 			t.Fatalf("Addr=%v, want %v", got, want)
 		} else if got, want := c.Origin, "http://localhost:3000"; got != want {
 			t.Fatalf("Origin=%v, want %v", got, want)
+		} else if got, want := c.Key, "supersecretkey"; got != want {
+			t.Fatalf("Key=%v, want %v", got, want)
 		}
 	})
 }
