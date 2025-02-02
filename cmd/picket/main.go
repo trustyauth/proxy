@@ -10,7 +10,6 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
-	"slices"
 	"syscall"
 	"time"
 
@@ -111,69 +110,10 @@ func NewServer(config *Config) (*http.Server, error) {
 	}
 
 	proxy := picket.NewReverseProxy(originServerURL, config.Key, *slog.Default())
-	mux := http.NewServeMux()
-	mux.HandleFunc("/", logMiddleware(csrfMiddleware(config.Key, proxy)))
-
 	server := http.Server{
 		Addr:    config.Addr,
-		Handler: mux,
+		Handler: proxy.Mux,
 	}
 
 	return &server, nil
-}
-
-var protectedMethods = []string{"POST", "PUT", "PATCH", "DELETE"}
-
-type loggingResponseWriter struct {
-	http.ResponseWriter
-	statusCode int
-}
-
-func NewLoggingResponseWriter(w http.ResponseWriter) *loggingResponseWriter {
-	// WriteHeader(int) is not called if our response implicitly returns 200 OK, so
-	// we default to that status code.
-	return &loggingResponseWriter{w, http.StatusOK}
-}
-
-func (lrw *loggingResponseWriter) WriteHeader(code int) {
-	lrw.statusCode = code
-	lrw.ResponseWriter.WriteHeader(code)
-}
-
-func logMiddleware(next func(http.ResponseWriter, *http.Request)) func(http.ResponseWriter, *http.Request) {
-	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		start := time.Now()
-
-		lrw := NewLoggingResponseWriter(w)
-		next(lrw, req)
-
-		end := time.Now()
-		slog.Info(req.URL.Path,
-			"ip", req.RemoteAddr,
-			"method", req.Method,
-			"protocol", req.Proto,
-			"status", lrw.statusCode,
-			"ua", req.UserAgent(),
-			"duration", end.Sub(start),
-		)
-	})
-}
-
-func csrfMiddleware(key string, next http.Handler) func(http.ResponseWriter, *http.Request) {
-	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		if slices.Contains(protectedMethods, req.Method) {
-			err := picket.ValidateCSRFToken(req, key)
-			if err != nil {
-				slog.Error("failed to validate csrf", "error", err)
-				w.WriteHeader(http.StatusForbidden)
-				return
-			}
-		} else {
-			csrf := picket.NewCSRFToken(key)
-			csrf.SetCookie(w)
-			csrf.SetHeader(w)
-		}
-
-		next.ServeHTTP(w, req)
-	})
 }

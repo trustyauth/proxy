@@ -68,3 +68,7 @@ func ValidateCSRFToken(req *http.Request, key string) error {
 
 	return nil
 }
+
+func shouldProtect(r *http.Request) bool {
+	return r.Method == http.MethodPost || r.Method == http.MethodPut || r.Method == http.MethodPatch || r.Method == http.MethodDelete
+}
