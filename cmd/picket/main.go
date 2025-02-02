@@ -4,7 +4,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"io"
 	"log"
 	"log/slog"
 	"net/http"
@@ -111,7 +110,7 @@ func NewServer(config *Config) (*http.Server, error) {
 		return nil, err
 	}
 
-	proxy := proxyHandler(originServerURL)
+	proxy := picket.NewReverseProxy(originServerURL, config.Key, *slog.Default())
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", logMiddleware(csrfMiddleware(config.Key, proxy)))
 
@@ -160,7 +159,7 @@ func logMiddleware(next func(http.ResponseWriter, *http.Request)) func(http.Resp
 	})
 }
 
-func csrfMiddleware(key string, next func(http.ResponseWriter, *http.Request)) func(http.ResponseWriter, *http.Request) {
+func csrfMiddleware(key string, next http.Handler) func(http.ResponseWriter, *http.Request) {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		if slices.Contains(protectedMethods, req.Method) {
 			err := picket.ValidateCSRFToken(req, key)
@@ -175,26 +174,6 @@ func csrfMiddleware(key string, next func(http.ResponseWriter, *http.Request)) f
 			csrf.SetHeader(w)
 		}
 
-		next(w, req)
+		next.ServeHTTP(w, req)
 	})
-}
-
-func proxyHandler(origin *url.URL) func(http.ResponseWriter, *http.Request) {
-	return func(w http.ResponseWriter, req *http.Request) {
-		req.Host = origin.Host
-		req.URL.Host = origin.Host
-		req.URL.Scheme = origin.Scheme
-		req.RequestURI = ""
-
-		resp, err := http.DefaultClient.Do(req)
-		if err != nil {
-			slog.Error("failed to proxy request to origin server", "error", err)
-			return
-		}
-
-		status := resp.StatusCode
-
-		w.WriteHeader(status)
-		io.Copy(w, resp.Body)
-	}
 }
