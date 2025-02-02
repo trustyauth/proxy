@@ -10,7 +10,6 @@ import (
 
 type ReverseProxy struct {
 	Origin *url.URL
-	Key    string
 	Logger slog.Logger
 	Mux    *http.ServeMux
 }
@@ -19,7 +18,6 @@ type ReverseProxy struct {
 func NewReverseProxy(origin *url.URL, key string, logger slog.Logger) *ReverseProxy {
 	rp := &ReverseProxy{
 		Origin: origin,
-		Key:    key,
 		Logger: logger,
 	}
 
@@ -28,6 +26,7 @@ func NewReverseProxy(origin *url.URL, key string, logger slog.Logger) *ReversePr
 
 	mux := http.NewServeMux()
 	mux.Handle("/", logging)
+
 	rp.Mux = mux
 
 	return rp

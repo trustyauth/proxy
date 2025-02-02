@@ -18,10 +18,6 @@ func TestNewReverseProxy(t *testing.T) {
 		t.Errorf("expected origin to be http://example.com, got %s", proxy.Origin.String())
 	}
 
-	if proxy.Key != "test-key" {
-		t.Errorf("expected key to be test-key, got %s", proxy.Key)
-	}
-
 	if proxy.Mux == nil {
 		t.Errorf("expected Mux to be non-nil")
 	}
