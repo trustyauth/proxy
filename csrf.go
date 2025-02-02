@@ -1,8 +1,6 @@
 package picket
 
 import (
-	"fmt"
-
 	"golang.org/x/net/xsrftoken"
 )
 
@@ -17,8 +15,12 @@ type CSRFToken struct {
 }
 
 // NewCSRFToken generates a new secure CSRF Token
-func NewCSRFToken(key, userID, method, path string) *CSRFToken {
-	action := fmt.Sprintf("%s %s", method, path)
-	token := xsrftoken.Generate(key, userID, action)
+func NewCSRFToken(key string) *CSRFToken {
+	token := xsrftoken.Generate(key, "", "")
 	return &CSRFToken{Token: token}
+}
+
+// ValidateCSRFToken validates a CSRF Token
+func ValidateCSRFToken(token, key string) bool {
+	return xsrftoken.Valid(token, key, "", "")
 }

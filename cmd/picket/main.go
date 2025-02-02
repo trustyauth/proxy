@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -11,6 +12,7 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"slices"
 	"syscall"
 	"time"
 
@@ -110,8 +112,9 @@ func NewServer(config *Config) (*http.Server, error) {
 		return nil, err
 	}
 
+	proxy := proxyHandler(originServerURL)
 	mux := http.NewServeMux()
-	mux.HandleFunc("/", proxyHandler(originServerURL, config.Key))
+	mux.HandleFunc("/", logMiddleware(csrfMiddleware(config.Key, proxy)))
 
 	server := http.Server{
 		Addr:    config.Addr,
@@ -121,10 +124,64 @@ func NewServer(config *Config) (*http.Server, error) {
 	return &server, nil
 }
 
-func proxyHandler(origin *url.URL, key string) func(http.ResponseWriter, *http.Request) {
-	return func(w http.ResponseWriter, req *http.Request) {
+var protectedMethods = []string{"POST", "PUT", "PATCH", "DELETE"}
+
+type loggingResponseWriter struct {
+	http.ResponseWriter
+	statusCode int
+}
+
+func NewLoggingResponseWriter(w http.ResponseWriter) *loggingResponseWriter {
+	// WriteHeader(int) is not called if our response implicitly returns 200 OK, so
+	// we default to that status code.
+	return &loggingResponseWriter{w, http.StatusOK}
+}
+
+func (lrw *loggingResponseWriter) WriteHeader(code int) {
+	lrw.statusCode = code
+	lrw.ResponseWriter.WriteHeader(code)
+}
+
+func logMiddleware(next func(http.ResponseWriter, *http.Request)) func(http.ResponseWriter, *http.Request) {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		start := time.Now()
 
+		lrw := NewLoggingResponseWriter(w)
+		next(lrw, req)
+
+		end := time.Now()
+		slog.Info(req.URL.Path,
+			"ip", req.RemoteAddr,
+			"method", req.Method,
+			"protocol", req.Proto,
+			"status", lrw.statusCode,
+			"ua", req.UserAgent(),
+			"duration", end.Sub(start),
+		)
+	})
+}
+
+func csrfMiddleware(key string, next func(http.ResponseWriter, *http.Request)) func(http.ResponseWriter, *http.Request) {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if slices.Contains(protectedMethods, req.Method) {
+			err := validateCSRF(req, key)
+			if err != nil {
+				slog.Error("failed to validate csrf", "error", err)
+				w.WriteHeader(http.StatusForbidden)
+				return
+			}
+		} else {
+			csrf := picket.NewCSRFToken(key)
+			setCookie(w, picket.XSRFCookie, csrf.Token)
+			setHeader(w, picket.CSRFHeader, csrf.Token)
+		}
+
+		next(w, req)
+	})
+}
+
+func proxyHandler(origin *url.URL) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, req *http.Request) {
 		req.Host = origin.Host
 		req.URL.Host = origin.Host
 		req.URL.Scheme = origin.Scheme
@@ -133,29 +190,41 @@ func proxyHandler(origin *url.URL, key string) func(http.ResponseWriter, *http.R
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
 			slog.Error("failed to proxy request to origin server", "error", err)
-			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 
 		status := resp.StatusCode
 
-		csrf := picket.NewCSRFToken(key, "tyler@example.com", req.Method, req.URL.Path)
-		setCookie(w, picket.XSRFCookie, csrf.Token)
-		setHeader(w, picket.CSRFHeader, csrf.Token)
-
 		w.WriteHeader(status)
 		io.Copy(w, resp.Body)
-
-		end := time.Now()
-		slog.Info(req.URL.Path,
-			"ip", req.RemoteAddr,
-			"method", req.Method,
-			"protocol", req.Proto,
-			"status", status,
-			"ua", req.UserAgent(),
-			"duration", end.Sub(start),
-		)
 	}
+}
+
+func validateCSRF(req *http.Request, key string) error {
+	csrfHeader := req.Header.Get(picket.CSRFHeader)
+
+	if csrfHeader == "" {
+		return fmt.Errorf("missing %s header", picket.CSRFHeader)
+	}
+
+	csrfCookie, err := req.Cookie(picket.XSRFCookie)
+	if err != nil {
+		return err
+	}
+
+	if csrfCookie == nil {
+		return fmt.Errorf("missing %s cookie", picket.XSRFCookie)
+	}
+
+	if csrfHeader != csrfCookie.Value {
+		return errors.New("token mismatch")
+	}
+
+	if !picket.ValidateCSRFToken(csrfCookie.Value, key) {
+		return errors.New("invalid token")
+	}
+
+	return nil
 }
 
 func setCookie(w http.ResponseWriter, name, value string) {
