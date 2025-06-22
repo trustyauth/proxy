@@ -1,30 +1,59 @@
-package picket
+package middleware
 
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 
 	"golang.org/x/net/xsrftoken"
 )
+
+type CSRF struct {
+	next http.Handler
+	key  string
+	slog.Logger
+}
+
+func NewCSRF(next http.Handler, key string, logger slog.Logger) *CSRF {
+	return &CSRF{
+		next:   next,
+		key:    key,
+		Logger: logger,
+	}
+}
+
+func (cm *CSRF) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if shouldProtect(r) {
+		err := ValidateCSRFToken(r, cm.key)
+		if err != nil {
+			cm.Logger.Error("failed to validate csrf", "error", err)
+			w.WriteHeader(http.StatusForbidden)
+			return
+		}
+	}
+
+	csrf := NewCSRFToken(cm.key)
+	csrf.SetCookie(w)
+	csrf.SetHeader(w)
+
+	cm.next.ServeHTTP(w, r)
+}
 
 const (
 	XSRFCookie = "XSRF-TOKEN"
 	CSRFHeader = "X-CSRF-TOKEN"
 )
 
-// CSRFToken represents a cross-site request forgery token
 type CSRFToken struct {
 	Token string
 }
 
-// NewCSRFToken generates a new secure CSRF Token
 func NewCSRFToken(key string) *CSRFToken {
 	token := xsrftoken.Generate(key, "", "")
 	return &CSRFToken{Token: token}
 }
 
-// SetCookie sets the CSRF Token in the response cookie
 func (csrf *CSRFToken) SetCookie(w http.ResponseWriter) {
 	cookie := http.Cookie{
 		Name:     XSRFCookie,
@@ -36,12 +65,10 @@ func (csrf *CSRFToken) SetCookie(w http.ResponseWriter) {
 	http.SetCookie(w, &cookie)
 }
 
-// SetHeader sets the CSRF Token in the response header
 func (csrf *CSRFToken) SetHeader(w http.ResponseWriter) {
 	w.Header().Set(CSRFHeader, csrf.Token)
 }
 
-// ValidateCSRFToken validates a CSRF Token
 func ValidateCSRFToken(req *http.Request, key string) error {
 	csrfHeader := req.Header.Get(CSRFHeader)
 

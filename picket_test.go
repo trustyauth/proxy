@@ -1,6 +1,7 @@
 package picket
 
 import (
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -8,6 +9,9 @@ import (
 	"testing"
 
 	"log/slog"
+
+	"github.com/tjmcginnis/picket/crypto"
+	"github.com/tjmcginnis/picket/middleware"
 )
 
 func TestNewReverseProxy(t *testing.T) {
@@ -40,7 +44,11 @@ func TestReverseProxy_ServeHTTP(t *testing.T) {
 	proxy := NewReverseProxy(originURL, "test-key", *logger)
 
 	t.Run("Valid Request", func(t *testing.T) {
+		email := "test@example.com"
+		encryptedEmail, _ := crypto.Encrypt(email, "test-key")
+
 		req := httptest.NewRequest("GET", "/test", nil)
+		req.AddCookie(&http.Cookie{Name: "picket", Value: encryptedEmail})
 		recorder := httptest.NewRecorder()
 
 		proxy.Mux.ServeHTTP(recorder, req)
@@ -57,7 +65,11 @@ func TestReverseProxy_ServeHTTP(t *testing.T) {
 	})
 
 	t.Run("Invalid Path", func(t *testing.T) {
+		email := "test@example.com"
+		encryptedEmail, _ := crypto.Encrypt(email, "test-key")
+
 		req := httptest.NewRequest("GET", "/invalid", nil)
+		req.AddCookie(&http.Cookie{Name: "picket", Value: encryptedEmail})
 		recorder := httptest.NewRecorder()
 
 		proxy.Mux.ServeHTTP(recorder, req)
@@ -75,8 +87,9 @@ func TestReverseProxy_WithMiddleware(t *testing.T) {
 		if r.URL.Path != "/test" {
 			t.Errorf("expected path to be /test, got %s", r.URL.Path)
 		}
+		email := r.Header.Get(middleware.AuthHeader)
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("proxied response"))
+		w.Write([]byte(fmt.Sprintf("proxied response for user: %s", email)))
 	}))
 	defer originServer.Close()
 
@@ -84,8 +97,15 @@ func TestReverseProxy_WithMiddleware(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	proxy := NewReverseProxy(originURL, "test-key", *logger)
 
-	t.Run("Adds CSRF Token", func(t *testing.T) {
+	t.Run("Proxies Authenticated Request", func(t *testing.T) {
+		email := "test@example.com"
+		encryptedEmail, _ := crypto.Encrypt(email, "test-key")
+		csrfToken := middleware.NewCSRFToken("test-key")
+
 		req := httptest.NewRequest("GET", "/test", nil)
+		req.Header.Set(middleware.CSRFHeader, csrfToken.Token)
+		req.AddCookie(&http.Cookie{Name: middleware.XSRFCookie, Value: csrfToken.Token})
+		req.AddCookie(&http.Cookie{Name: "picket", Value: encryptedEmail})
 		recorder := httptest.NewRecorder()
 
 		proxy.Mux.ServeHTTP(recorder, req)
@@ -100,52 +120,40 @@ func TestReverseProxy_WithMiddleware(t *testing.T) {
 			t.Fatalf("expected 1 cookie, got %d", len(cookie))
 		}
 
-		if cookie[0].Name != XSRFCookie {
-			t.Errorf("expected cookie name to be %s, got %s", XSRFCookie, cookie[0].Name)
+		if cookie[0].Name != middleware.XSRFCookie {
+			t.Errorf("expected cookie name to be %s, got %s", middleware.XSRFCookie, cookie[0].Name)
 		}
 
 		if cookie[0].Value == "" {
 			t.Errorf("expected cookie value to be non-empty")
 		}
 
-		if resp.Header.Get(CSRFHeader) == "" {
+		if resp.Header.Get(middleware.CSRFHeader) == "" {
 			t.Errorf("expected header to be non-empty")
 		}
 
-		if resp.Header.Get(CSRFHeader) != cookie[0].Value {
+		if resp.Header.Get(middleware.CSRFHeader) != cookie[0].Value {
 			t.Errorf("expected header to match cookie")
 		}
 
-		body, _ := io.ReadAll(resp.Body)
-		if string(body) != "proxied response" {
-			t.Errorf("expected body to be 'proxied response', got %s", string(body))
-		}
-	})
-
-	t.Run("Valid CSRF Token", func(t *testing.T) {
-		req := httptest.NewRequest("POST", "/test", nil)
-		csrfToken := NewCSRFToken("test-key")
-		req.Header.Set(CSRFHeader, csrfToken.Token)
-		req.AddCookie(&http.Cookie{Name: XSRFCookie, Value: csrfToken.Token})
-		recorder := httptest.NewRecorder()
-
-		proxy.Mux.ServeHTTP(recorder, req)
-
-		resp := recorder.Result()
-		if resp.StatusCode != http.StatusOK {
-			t.Errorf("expected status code to be 200, got %d", resp.StatusCode)
+		if resp.Header.Get(middleware.AuthHeader) != "" {
+			t.Errorf("expected X-PICKET-USER-EMAIL to be excluded from response")
 		}
 
 		body, _ := io.ReadAll(resp.Body)
-		if string(body) != "proxied response" {
-			t.Errorf("expected body to be 'proxied response', got %s", string(body))
+		if string(body) != "proxied response for user: "+email {
+			t.Errorf("expected body to be 'proxied response for user: test@example.com', got %s", string(body))
 		}
 	})
 
-	t.Run("Invalid CSRF Token", func(t *testing.T) {
+	t.Run("Invalid CSRF Token with Valid Auth Cookie Should Not Set Email Header", func(t *testing.T) {
+		email := "test@example.com"
+		encryptedEmail, _ := crypto.Encrypt(email, "test-key")
+
 		req := httptest.NewRequest("POST", "/test", nil)
-		req.Header.Set(CSRFHeader, "invalid-csrf-token")
-		req.AddCookie(&http.Cookie{Name: XSRFCookie, Value: "test-csrf-token"})
+		req.AddCookie(&http.Cookie{Name: "picket", Value: encryptedEmail})
+		req.Header.Set(middleware.CSRFHeader, "invalid-csrf-token")
+		req.AddCookie(&http.Cookie{Name: middleware.XSRFCookie, Value: "invalid-csrf-cookie"})
 		recorder := httptest.NewRecorder()
 
 		proxy.Mux.ServeHTTP(recorder, req)
