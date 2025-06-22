@@ -61,6 +61,7 @@ func (csrf *CSRFToken) SetCookie(w http.ResponseWriter) {
 		Path:     "/",
 		Secure:   true,
 		SameSite: http.SameSiteLaxMode,
+		HttpOnly: true,
 	}
 	http.SetCookie(w, &cookie)
 }
