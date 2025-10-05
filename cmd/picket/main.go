@@ -41,6 +41,11 @@ func run(ctx context.Context, args []string) error {
 		return fmt.Errorf("must specify origin server")
 	}
 
+	// Validate key length for security
+	if len(config.Key) < 32 {
+		return fmt.Errorf("encryption key must be at least 32 bytes (current: %d bytes)", len(config.Key))
+	}
+
 	server, err := NewServer(&config)
 	if err != nil {
 		return err

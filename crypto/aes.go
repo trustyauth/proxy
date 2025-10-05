@@ -11,7 +11,10 @@ import (
 
 // Encrypt encrypts plaintext using AES-GCM with the provided key
 func Encrypt(plaintext, key string) (string, error) {
-	keyBytes := prepareKey(key)
+	keyBytes, err := prepareKey(key)
+	if err != nil {
+		return "", err
+	}
 
 	block, err := aes.NewCipher(keyBytes)
 	if err != nil {
@@ -34,7 +37,10 @@ func Encrypt(plaintext, key string) (string, error) {
 
 // Decrypt decrypts ciphertext using AES-GCM with the provided key
 func Decrypt(ciphertext, key string) (string, error) {
-	keyBytes := prepareKey(key)
+	keyBytes, err := prepareKey(key)
+	if err != nil {
+		return "", err
+	}
 
 	data, err := base64.URLEncoding.DecodeString(ciphertext)
 	if err != nil {
@@ -65,15 +71,20 @@ func Decrypt(ciphertext, key string) (string, error) {
 	return string(plaintext), nil
 }
 
-// prepareKey ensures the key is exactly 32 bytes for AES-256
-func prepareKey(key string) []byte {
+// prepareKey validates and prepares the key for AES-256
+func prepareKey(key string) ([]byte, error) {
 	keyBytes := []byte(key)
-	if len(keyBytes) < 32 {
-		newKey := make([]byte, 32)
-		copy(newKey, keyBytes)
-		return newKey
-	} else if len(keyBytes) > 32 {
-		return keyBytes[:32]
+	keyLen := len(keyBytes)
+	
+	// Enforce minimum key length for security
+	if keyLen < 32 {
+		return nil, errors.New("encryption key must be at least 32 bytes")
 	}
-	return keyBytes
+	
+	// Truncate if longer than 32 bytes
+	if keyLen > 32 {
+		return keyBytes[:32], nil
+	}
+	
+	return keyBytes, nil
 }

@@ -16,7 +16,8 @@ import (
 
 func TestNewReverseProxy(t *testing.T) {
 	originURL, _ := url.Parse("http://example.com")
-	proxy := NewReverseProxy(originURL, "test-key", *slog.Default())
+	testKey := "test-key-with-exactly-32-chars!!" // exactly 32 bytes
+	proxy := NewReverseProxy(originURL, testKey, *slog.Default())
 
 	if proxy.Origin.String() != "http://example.com" {
 		t.Errorf("expected origin to be http://example.com, got %s", proxy.Origin.String())
@@ -41,11 +42,12 @@ func TestReverseProxy_ServeHTTP(t *testing.T) {
 
 	originURL, _ := url.Parse(originServer.URL)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	proxy := NewReverseProxy(originURL, "test-key", *logger)
+	testKey := "test-key-with-exactly-32-chars!!" // exactly 32 bytes
+	proxy := NewReverseProxy(originURL, testKey, *logger)
 
 	t.Run("Valid Request", func(t *testing.T) {
 		email := "test@example.com"
-		encryptedEmail, _ := crypto.Encrypt(email, "test-key")
+		encryptedEmail, _ := crypto.Encrypt(email, testKey)
 
 		req := httptest.NewRequest("GET", "/test", nil)
 		req.AddCookie(&http.Cookie{Name: "picket", Value: encryptedEmail})
@@ -66,7 +68,7 @@ func TestReverseProxy_ServeHTTP(t *testing.T) {
 
 	t.Run("Invalid Path", func(t *testing.T) {
 		email := "test@example.com"
-		encryptedEmail, _ := crypto.Encrypt(email, "test-key")
+		encryptedEmail, _ := crypto.Encrypt(email, testKey)
 
 		req := httptest.NewRequest("GET", "/invalid", nil)
 		req.AddCookie(&http.Cookie{Name: "picket", Value: encryptedEmail})
@@ -95,12 +97,13 @@ func TestReverseProxy_WithMiddleware(t *testing.T) {
 
 	originURL, _ := url.Parse(originServer.URL)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	proxy := NewReverseProxy(originURL, "test-key", *logger)
+	testKey := "test-key-with-exactly-32-chars!!" // exactly 32 bytes
+	proxy := NewReverseProxy(originURL, testKey, *logger)
 
 	t.Run("Proxies Authenticated Request", func(t *testing.T) {
 		email := "test@example.com"
-		encryptedEmail, _ := crypto.Encrypt(email, "test-key")
-		csrfToken := middleware.NewCSRFToken("test-key")
+		encryptedEmail, _ := crypto.Encrypt(email, testKey)
+		csrfToken := middleware.NewCSRFToken(testKey)
 
 		req := httptest.NewRequest("GET", "/test", nil)
 		req.Header.Set(middleware.CSRFHeader, csrfToken.Token)
@@ -148,7 +151,7 @@ func TestReverseProxy_WithMiddleware(t *testing.T) {
 
 	t.Run("Invalid CSRF Token with Valid Auth Cookie Should Not Set Email Header", func(t *testing.T) {
 		email := "test@example.com"
-		encryptedEmail, _ := crypto.Encrypt(email, "test-key")
+		encryptedEmail, _ := crypto.Encrypt(email, testKey)
 
 		req := httptest.NewRequest("POST", "/test", nil)
 		req.AddCookie(&http.Cookie{Name: "picket", Value: encryptedEmail})
