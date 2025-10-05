@@ -3,7 +3,7 @@ package crypto
 import "testing"
 
 func TestEncryptDecrypt(t *testing.T) {
-	key := "test-encryption-key-32-chars!"
+	key := "test-encryption-key-32-chars!!!!" // exactly 32 bytes
 	plaintext := "test@example.com"
 
 	t.Run("Encrypt and Decrypt", func(t *testing.T) {
@@ -39,8 +39,9 @@ func TestEncryptDecrypt(t *testing.T) {
 			t.Fatalf("failed to encrypt: %v", err)
 		}
 
-		// Try to decrypt with different key
-		_, err = Decrypt(encrypted, "different-key")
+		// Try to decrypt with different key (but valid length)
+		differentKey := "different-key-32-chars-exactly!!"
+		_, err = Decrypt(encrypted, differentKey)
 		if err == nil {
 			t.Error("expected error when decrypting with different key")
 		}
@@ -59,6 +60,43 @@ func TestEncryptDecrypt(t *testing.T) {
 
 		if decrypted != "" {
 			t.Errorf("expected empty string, got %s", decrypted)
+		}
+	})
+
+	t.Run("Short Key Error", func(t *testing.T) {
+		shortKey := "short"
+		_, err := Encrypt(plaintext, shortKey)
+		if err == nil {
+			t.Error("expected error for short key")
+		}
+		if err.Error() != "encryption key must be at least 32 bytes" {
+			t.Errorf("unexpected error message: %v", err)
+		}
+
+		// Also test decrypt with short key
+		_, err = Decrypt("dummy", shortKey)
+		if err == nil {
+			t.Error("expected error for short key in decrypt")
+		}
+	})
+
+	t.Run("Key Truncation", func(t *testing.T) {
+		// Test that keys longer than 32 bytes are truncated
+		longKey := "this-is-a-very-long-key-that-is-more-than-32-bytes"
+		truncatedKey := longKey[:32]
+
+		encrypted1, err := Encrypt(plaintext, longKey)
+		if err != nil {
+			t.Fatalf("failed to encrypt with long key: %v", err)
+		}
+
+		// Decrypt with truncated key should work
+		decrypted1, err := Decrypt(encrypted1, truncatedKey)
+		if err != nil {
+			t.Fatalf("failed to decrypt: %v", err)
+		}
+		if decrypted1 != plaintext {
+			t.Error("decryption failed with truncated key")
 		}
 	})
 }

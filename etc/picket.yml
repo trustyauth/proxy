@@ -1,3 +1,3 @@
 addr: :80
 origin: http://localhost:5678
-key: test-encryption-key-32-chars!
+key: test-encryption-key-is-full-length!

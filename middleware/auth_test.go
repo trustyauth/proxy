@@ -18,11 +18,12 @@ func TestAuthMiddleware(t *testing.T) {
 	})
 
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	middleware := NewAuth(nextHandler, "test-encryption-key-32-chars!", *logger)
+	testKey := "test-encryption-key-32-chars!!!!" // exactly 32 bytes
+	middleware := NewAuth(nextHandler, testKey, *logger)
 
 	t.Run("Valid Email Cookie", func(t *testing.T) {
 		email := "test@example.com"
-		encryptedEmail, err := crypto.Encrypt(email, "test-encryption-key-32-chars!")
+		encryptedEmail, err := crypto.Encrypt(email, testKey)
 		if err != nil {
 			t.Fatalf("failed to encrypt email: %v", err)
 		}
@@ -46,7 +47,7 @@ func TestAuthMiddleware(t *testing.T) {
 
 	t.Run("Invalid Email Cookie", func(t *testing.T) {
 		invalidEmail := "not-an-email"
-		encryptedInvalid, err := crypto.Encrypt(invalidEmail, "test-encryption-key-32-chars!")
+		encryptedInvalid, err := crypto.Encrypt(invalidEmail, testKey)
 		if err != nil {
 			t.Fatalf("failed to encrypt invalid email: %v", err)
 		}
