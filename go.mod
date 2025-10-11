@@ -1,8 +1,8 @@
 module github.com/tjmcginnis/picket
 
-go 1.22.5
+go 1.25
 
 require (
-	golang.org/x/net v0.27.0
+	golang.org/x/net v0.46.0
 	gopkg.in/yaml.v3 v3.0.1
 )
