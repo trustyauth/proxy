@@ -19,8 +19,8 @@ func TestNewReverseProxy(t *testing.T) {
 	testKey := "test-key-with-exactly-32-chars!!" // exactly 32 bytes
 	proxy := NewReverseProxy(originURL, testKey, *slog.Default())
 
-	if proxy.Origin.String() != "http://example.com" {
-		t.Errorf("expected origin to be http://example.com, got %s", proxy.Origin.String())
+	if proxy.origin.String() != "http://example.com" {
+		t.Errorf("expected origin to be http://example.com, got %s", proxy.origin.String())
 	}
 
 	if proxy.Mux == nil {

@@ -10,16 +10,16 @@ import (
 )
 
 type ReverseProxy struct {
-	Origin *url.URL
-	Logger slog.Logger
+	origin *url.URL
+	logger slog.Logger
 	Mux    *http.ServeMux
 }
 
 // NewReverseProxy creates a new ReverseProxy
 func NewReverseProxy(origin *url.URL, key string, logger slog.Logger) *ReverseProxy {
 	rp := &ReverseProxy{
-		Origin: origin,
-		Logger: logger,
+		origin: origin,
+		logger: logger,
 	}
 
 	auth := middleware.NewAuth(*rp, key, logger)
@@ -36,14 +36,14 @@ func NewReverseProxy(origin *url.URL, key string, logger slog.Logger) *ReversePr
 
 // ServeHTTP proxies the request to the origin server
 func (rp ReverseProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	r.Host = rp.Origin.Host
-	r.URL.Host = rp.Origin.Host
-	r.URL.Scheme = rp.Origin.Scheme
+	r.Host = rp.origin.Host
+	r.URL.Host = rp.origin.Host
+	r.URL.Scheme = rp.origin.Scheme
 	r.RequestURI = ""
 
 	resp, err := http.DefaultClient.Do(r)
 	if err != nil {
-		rp.Logger.Error("failed to proxy request to origin server", "error", err)
+		rp.logger.Error("failed to proxy request to origin server", "error", err)
 		return
 	}
 
