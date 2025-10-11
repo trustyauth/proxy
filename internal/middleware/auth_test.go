@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/tjmcginnis/picket/crypto"
+	"github.com/tjmcginnis/picket/internal/crypto"
 )
 
 func TestAuthMiddleware(t *testing.T) {

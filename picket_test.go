@@ -10,8 +10,8 @@ import (
 
 	"log/slog"
 
-	"github.com/tjmcginnis/picket/crypto"
-	"github.com/tjmcginnis/picket/middleware"
+	"github.com/tjmcginnis/picket/internal/crypto"
+	"github.com/tjmcginnis/picket/internal/middleware"
 )
 
 func TestNewReverseProxy(t *testing.T) {

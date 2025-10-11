@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/tjmcginnis/picket/middleware"
+	"github.com/tjmcginnis/picket/internal/middleware"
 )
 
 type ReverseProxy struct {

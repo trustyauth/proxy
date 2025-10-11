@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"net/mail"
 
-	"github.com/tjmcginnis/picket/crypto"
+	"github.com/tjmcginnis/picket/internal/crypto"
 )
 
 type Auth struct {
