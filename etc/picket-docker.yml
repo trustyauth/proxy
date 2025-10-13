@@ -1,0 +1,3 @@
+addr: :80
+origin: http://echo-server:5678
+key: test-encryption-key-is-full-length!

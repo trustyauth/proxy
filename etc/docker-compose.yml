@@ -1,0 +1,27 @@
+# Example Docker Compose file for Picket with an echo server
+services:
+  picket:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    container_name: picket
+    ports:
+      - "80:80"
+    volumes:
+      - ./picket-docker.yml:/etc/picket.yml
+    command: ["-config", "/etc/picket.yml"]
+    depends_on:
+      - echo-server
+    networks:
+      - picket-network
+
+  echo-server:
+    image: hashicorp/http-echo
+    container_name: echo-server
+    command: ["-text", "Hello from echo-server"]
+    networks:
+      - picket-network
+
+networks:
+  picket-network:
+    driver: bridge
