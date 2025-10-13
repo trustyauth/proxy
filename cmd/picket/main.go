@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/tjmcginnis/picket"
+	"github.com/tjmcginnis/picket/internal/crypto"
 	"gopkg.in/yaml.v3"
 )
 
@@ -42,8 +43,8 @@ func run(ctx context.Context, args []string) error {
 	}
 
 	// Validate key length for security
-	if len(config.Key) < 32 {
-		return fmt.Errorf("encryption key must be at least 32 bytes (current: %d bytes)", len(config.Key))
+	if len(config.Key) < crypto.MinKeyLength {
+		return fmt.Errorf("encryption key must be at least %d bytes (current: %d bytes)", crypto.MinKeyLength, len(config.Key))
 	}
 
 	server, err := NewServer(&config)

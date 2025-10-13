@@ -6,8 +6,11 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"io"
 )
+
+const MinKeyLength = 32 // Minimum key length for AES-256
 
 // Encrypt encrypts plaintext using AES-GCM with the provided key
 func Encrypt(plaintext, key string) (string, error) {
@@ -75,16 +78,15 @@ func Decrypt(ciphertext, key string) (string, error) {
 func prepareKey(key string) ([]byte, error) {
 	keyBytes := []byte(key)
 	keyLen := len(keyBytes)
-	
-	// Enforce minimum key length for security
-	if keyLen < 32 {
-		return nil, errors.New("encryption key must be at least 32 bytes")
+
+	if keyLen < MinKeyLength {
+		return nil, fmt.Errorf("encryption key must be at least %d bytes", MinKeyLength)
 	}
-	
+
 	// Truncate if longer than 32 bytes
-	if keyLen > 32 {
-		return keyBytes[:32], nil
+	if keyLen > MinKeyLength {
+		return keyBytes[:MinKeyLength], nil
 	}
-	
+
 	return keyBytes, nil
 }

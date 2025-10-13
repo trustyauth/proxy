@@ -83,7 +83,7 @@ func TestEncryptDecrypt(t *testing.T) {
 	t.Run("Key Truncation", func(t *testing.T) {
 		// Test that keys longer than 32 bytes are truncated
 		longKey := "this-is-a-very-long-key-that-is-more-than-32-bytes"
-		truncatedKey := longKey[:32]
+		truncatedKey := longKey[:MinKeyLength]
 
 		encrypted1, err := Encrypt(plaintext, longKey)
 		if err != nil {
