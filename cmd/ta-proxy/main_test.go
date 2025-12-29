@@ -9,7 +9,7 @@ import (
 
 func TestReadConfig(t *testing.T) {
 	t.Run("ReadConfig", func(t *testing.T) {
-		configFile := filepath.Join(t.TempDir(), "picket.yml")
+		configFile := filepath.Join(t.TempDir(), "trustyauth.yml")
 		if err := os.WriteFile(configFile, []byte(`
 addr: :80
 origin: http://localhost:3000

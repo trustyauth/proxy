@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/tjmcginnis/picket/internal/crypto"
+	"github.com/trustyauth/proxy/internal/crypto"
 )
 
 func TestAuthMiddleware(t *testing.T) {
@@ -29,7 +29,7 @@ func TestAuthMiddleware(t *testing.T) {
 		}
 
 		req := httptest.NewRequest("GET", "/test", nil)
-		req.AddCookie(&http.Cookie{Name: "picket", Value: encryptedEmail})
+		req.AddCookie(&http.Cookie{Name: "ta", Value: encryptedEmail})
 		recorder := httptest.NewRecorder()
 
 		middleware.ServeHTTP(recorder, req)
@@ -41,7 +41,7 @@ func TestAuthMiddleware(t *testing.T) {
 
 		emailHeader := req.Header.Get(AuthHeader)
 		if emailHeader != email {
-			t.Errorf("expected X-PICKET-USER-EMAIL header to be %s, got %s", email, emailHeader)
+			t.Errorf("expected X-TA-USER-EMAIL header to be %s, got %s", email, emailHeader)
 		}
 	})
 
@@ -53,7 +53,7 @@ func TestAuthMiddleware(t *testing.T) {
 		}
 
 		req := httptest.NewRequest("GET", "/test", nil)
-		req.AddCookie(&http.Cookie{Name: "picket", Value: encryptedInvalid})
+		req.AddCookie(&http.Cookie{Name: "ta", Value: encryptedInvalid})
 		recorder := httptest.NewRecorder()
 
 		middleware.ServeHTTP(recorder, req)
@@ -65,11 +65,11 @@ func TestAuthMiddleware(t *testing.T) {
 
 		emailHeader := req.Header.Get(AuthHeader)
 		if emailHeader != "" {
-			t.Errorf("expected X-PICKET-USER-EMAIL header to be empty, got %s", emailHeader)
+			t.Errorf("expected X-TA-USER-EMAIL header to be empty, got %s", emailHeader)
 		}
 	})
 
-	t.Run("No Picket Cookie", func(t *testing.T) {
+	t.Run("No Cookie", func(t *testing.T) {
 		req := httptest.NewRequest("GET", "/test", nil)
 		recorder := httptest.NewRecorder()
 
@@ -82,13 +82,13 @@ func TestAuthMiddleware(t *testing.T) {
 
 		emailHeader := req.Header.Get(AuthHeader)
 		if emailHeader != "" {
-			t.Errorf("expected X-PICKET-USER-EMAIL header to be empty, got %s", emailHeader)
+			t.Errorf("expected X-TA-USER-EMAIL header to be empty, got %s", emailHeader)
 		}
 	})
 
 	t.Run("Invalid Encrypted Cookie", func(t *testing.T) {
 		req := httptest.NewRequest("GET", "/test", nil)
-		req.AddCookie(&http.Cookie{Name: "picket", Value: "invalid-encrypted-data"})
+		req.AddCookie(&http.Cookie{Name: "ta", Value: "invalid-encrypted-data"})
 		recorder := httptest.NewRecorder()
 
 		middleware.ServeHTTP(recorder, req)
@@ -100,7 +100,7 @@ func TestAuthMiddleware(t *testing.T) {
 
 		emailHeader := req.Header.Get(AuthHeader)
 		if emailHeader != "" {
-			t.Errorf("expected X-PICKET-USER-EMAIL header to be empty, got %s", emailHeader)
+			t.Errorf("expected X-TA-USER-EMAIL header to be empty, got %s", emailHeader)
 		}
 	})
 }

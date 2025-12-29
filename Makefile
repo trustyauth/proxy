@@ -1,11 +1,14 @@
 default:
-	go build -o dist/picket ./cmd/picket
+	go build -o dist/ta-proxy ./cmd/ta-proxy
 
 clean:
 	rm -rf dist
 
 test:
 	go test ./...
+
+fmt:
+	go fmt ./...
 
 up:
 	docker-compose -f ./etc/docker-compose.yml up -d --build

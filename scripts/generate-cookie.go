@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/tjmcginnis/picket/internal/crypto"
+	"github.com/trustyauth/proxy/internal/crypto"
 )
 
 func main() {
@@ -21,5 +21,5 @@ func main() {
 	fmt.Printf("Email: %s\n", *email)
 	fmt.Printf("Encrypted cookie value: %s\n", encrypted)
 	fmt.Printf("\nUsage with curl:\n")
-	fmt.Printf("curl -H \"Cookie: picket=%s\" http://localhost:80\n", encrypted)
+	fmt.Printf("curl -H \"Cookie: ta=%s\" http://localhost:80\n", encrypted)
 }

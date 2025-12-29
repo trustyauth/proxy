@@ -4,12 +4,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Picket is a authn-focused HTTP reverse proxy written in Go that provides authentication and CSRF protection middleware. It sits in front of an origin server and validates requests before proxying them through.
+TrustyAuth Proxy is an authn-focused HTTP reverse proxy written in Go that provides authentication and CSRF protection middleware. It sits in front of an origin server and validates requests before proxying them through.
 
 ## Build and Development Commands
 
 ```bash
-# Build the binary (outputs to dist/picket)
+# Build the binary (outputs to dist/ta-proxy)
 make
 
 # Run tests
@@ -22,14 +22,14 @@ go test ./middleware -run TestAuth
 make clean
 
 # Run the proxy server
-./dist/picket -config etc/picket.yml
+./dist/ta-proxy -config etc/trustyauth.yml
 ```
 
 ## Architecture
 
 ### Middleware Chain Pattern
 
-The proxy uses the standard Go middleware pattern `func(http.Handler) http.Handler` implemented in `picket.go:NewReverseProxy()`. Middleware is registered sequentially, with each wrapping the previous handler:
+The proxy uses the standard Go middleware pattern `func(http.Handler) http.Handler` implemented in `proxy.go:NewReverseProxy()`. Middleware is registered sequentially, with each wrapping the previous handler:
 
 ```go
 var handler http.Handler = rp
@@ -49,9 +49,9 @@ Each middleware function returns an `http.Handler` that wraps the next handler a
 ### Security Components
 
 **Authentication (`middleware/auth.go`)**
-- Validates `picket` cookie containing encrypted user email
+- Validates `ta` cookie containing encrypted user email
 - Uses AES-GCM encryption from `crypto/aes.go`
-- Sets `X-PICKET-USER-EMAIL` header for downstream use
+- Sets `X-TA-USER-EMAIL` header for downstream use
 - Returns 403 on missing/invalid cookie or malformed email
 
 **CSRF Protection (`middleware/csrf.go`)**

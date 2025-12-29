@@ -1,27 +1,27 @@
-# Example Docker Compose file for Picket with an echo server
+# Example Docker Compose file for TrustyAuth proxy with an echo server
 services:
-  picket:
+  ta-proxy:
     build:
       context: ..
       dockerfile: Dockerfile
-    container_name: picket
+    container_name: ta-proxy
     ports:
       - "80:80"
     volumes:
-      - ./picket-docker.yml:/etc/picket.yml
-    command: ["-config", "/etc/picket.yml"]
+      - ./trustyauth-docker.yml:/etc/trustyauth.yml
+    command: ["-config", "/etc/trustyauth.yml"]
     depends_on:
       - echo-server
     networks:
-      - picket-network
+      - ta-network
 
   echo-server:
     image: hashicorp/http-echo
     container_name: echo-server
     command: ["-text", "Hello from echo-server"]
     networks:
-      - picket-network
+      - ta-network
 
 networks:
-  picket-network:
+  ta-network:
     driver: bridge

@@ -1,4 +1,4 @@
-module github.com/tjmcginnis/picket
+module github.com/trustyauth/proxy
 
 go 1.25
 

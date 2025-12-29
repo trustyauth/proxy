@@ -1,4 +1,4 @@
-package picket
+package proxy
 
 import (
 	"io"
@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/tjmcginnis/picket/internal/middleware"
+	"github.com/trustyauth/proxy/internal/middleware"
 )
 
 type ReverseProxy struct {

@@ -1,4 +1,4 @@
-package picket
+package proxy
 
 import (
 	"fmt"
@@ -10,8 +10,8 @@ import (
 
 	"log/slog"
 
-	"github.com/tjmcginnis/picket/internal/crypto"
-	"github.com/tjmcginnis/picket/internal/middleware"
+	"github.com/trustyauth/proxy/internal/crypto"
+	"github.com/trustyauth/proxy/internal/middleware"
 )
 
 func TestNewReverseProxy(t *testing.T) {
@@ -50,7 +50,7 @@ func TestReverseProxy_ServeHTTP(t *testing.T) {
 		encryptedEmail, _ := crypto.Encrypt(email, testKey)
 
 		req := httptest.NewRequest("GET", "/test", nil)
-		req.AddCookie(&http.Cookie{Name: "picket", Value: encryptedEmail})
+		req.AddCookie(&http.Cookie{Name: "ta", Value: encryptedEmail})
 		recorder := httptest.NewRecorder()
 
 		proxy.Mux.ServeHTTP(recorder, req)
@@ -71,7 +71,7 @@ func TestReverseProxy_ServeHTTP(t *testing.T) {
 		encryptedEmail, _ := crypto.Encrypt(email, testKey)
 
 		req := httptest.NewRequest("GET", "/invalid", nil)
-		req.AddCookie(&http.Cookie{Name: "picket", Value: encryptedEmail})
+		req.AddCookie(&http.Cookie{Name: "ta", Value: encryptedEmail})
 		recorder := httptest.NewRecorder()
 
 		proxy.Mux.ServeHTTP(recorder, req)
@@ -108,7 +108,7 @@ func TestReverseProxy_WithMiddleware(t *testing.T) {
 		req := httptest.NewRequest("GET", "/test", nil)
 		req.Header.Set(middleware.CSRFHeader, csrfToken.Token)
 		req.AddCookie(&http.Cookie{Name: middleware.XSRFCookie, Value: csrfToken.Token})
-		req.AddCookie(&http.Cookie{Name: "picket", Value: encryptedEmail})
+		req.AddCookie(&http.Cookie{Name: "ta", Value: encryptedEmail})
 		recorder := httptest.NewRecorder()
 
 		proxy.Mux.ServeHTTP(recorder, req)
@@ -140,7 +140,7 @@ func TestReverseProxy_WithMiddleware(t *testing.T) {
 		}
 
 		if resp.Header.Get(middleware.AuthHeader) != "" {
-			t.Errorf("expected X-PICKET-USER-EMAIL to be excluded from response")
+			t.Errorf("expected X-TA-USER-EMAIL to be excluded from response")
 		}
 
 		body, _ := io.ReadAll(resp.Body)
@@ -154,7 +154,7 @@ func TestReverseProxy_WithMiddleware(t *testing.T) {
 		encryptedEmail, _ := crypto.Encrypt(email, testKey)
 
 		req := httptest.NewRequest("POST", "/test", nil)
-		req.AddCookie(&http.Cookie{Name: "picket", Value: encryptedEmail})
+		req.AddCookie(&http.Cookie{Name: "ta", Value: encryptedEmail})
 		req.Header.Set(middleware.CSRFHeader, "invalid-csrf-token")
 		req.AddCookie(&http.Cookie{Name: middleware.XSRFCookie, Value: "invalid-csrf-cookie"})
 		recorder := httptest.NewRecorder()

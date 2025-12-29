@@ -13,8 +13,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/tjmcginnis/picket"
-	"github.com/tjmcginnis/picket/internal/crypto"
+	"github.com/trustyauth/proxy"
+	"github.com/trustyauth/proxy/internal/crypto"
 	"gopkg.in/yaml.v3"
 )
 
@@ -26,7 +26,7 @@ func main() {
 }
 
 func run(ctx context.Context, args []string) error {
-	fs := flag.NewFlagSet("picket", flag.ContinueOnError)
+	fs := flag.NewFlagSet("ta-proxy", flag.ContinueOnError)
 	configFlag := fs.String("config", "", "config path")
 	err := fs.Parse(args)
 	if err != nil {
@@ -77,7 +77,7 @@ func run(ctx context.Context, args []string) error {
 	return nil
 }
 
-// Config represents a picket configuration file
+// Config represents a trustyauth configuration file
 type Config struct {
 	// Bind addr
 	Addr string `yaml:"addr"`
@@ -115,10 +115,10 @@ func NewServer(config *Config) (*http.Server, error) {
 		return nil, err
 	}
 
-	proxy := picket.NewReverseProxy(originServerURL, config.Key, *slog.Default())
+	rp := proxy.NewReverseProxy(originServerURL, config.Key, *slog.Default())
 	server := http.Server{
 		Addr:    config.Addr,
-		Handler: proxy.Mux,
+		Handler: rp.Mux,
 	}
 
 	return &server, nil
