@@ -18,7 +18,7 @@ func TestCSRFMIddleware(t *testing.T) {
 	})
 
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	middleware := NewCSRF(nextHandler, "test-encryption-key-32-chars!", *logger)
+	middleware := CSRF(nextHandler, "test-encryption-key-32-chars!", *logger)
 
 	reqs := []struct {
 		method string

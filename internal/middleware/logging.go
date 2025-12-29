@@ -6,44 +6,35 @@ import (
 	"time"
 )
 
-type Logging struct {
-	next http.Handler
-	slog.Logger
-}
+// Logging returns a middleware handler that logs request details including timing and user info
+func Logging(next http.Handler, logger slog.Logger) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
 
-func NewLogging(next http.Handler, logger slog.Logger) *Logging {
-	return &Logging{
-		next:   next,
-		Logger: logger,
-	}
-}
+		lrw := NewLoggingResponseWriter(w)
+		next.ServeHTTP(lrw, r)
 
-func (lm *Logging) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	start := time.Now()
+		end := time.Now()
 
-	lrw := NewLoggingResponseWriter(w)
-	lm.next.ServeHTTP(lrw, r)
+		// Capture user email if set by auth middleware
+		email := r.Header.Get(AuthHeader)
 
-	end := time.Now()
+		logFields := []any{
+			"ip", r.RemoteAddr,
+			"method", r.Method,
+			"protocol", r.Proto,
+			"status", lrw.statusCode,
+			"ua", r.UserAgent(),
+			"duration", end.Sub(start),
+		}
 
-	// Capture user email if set by auth middleware
-	email := r.Header.Get(AuthHeader)
+		// Add email field if present
+		if email != "" {
+			logFields = append(logFields, "user", email)
+		}
 
-	logFields := []any{
-		"ip", r.RemoteAddr,
-		"method", r.Method,
-		"protocol", r.Proto,
-		"status", lrw.statusCode,
-		"ua", r.UserAgent(),
-		"duration", end.Sub(start),
-	}
-
-	// Add email field if present
-	if email != "" {
-		logFields = append(logFields, "user", email)
-	}
-
-	lm.Logger.Info(r.URL.Path, logFields...)
+		logger.Info(r.URL.Path, logFields...)
+	})
 }
 
 type loggingResponseWriter struct {

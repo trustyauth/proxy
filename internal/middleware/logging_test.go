@@ -20,7 +20,7 @@ func TestLoggingMiddleware(t *testing.T) {
 			w.Write([]byte("test response"))
 		})
 
-		middleware := NewLogging(nextHandler, *logger)
+		middleware := Logging(nextHandler, *logger)
 
 		req := httptest.NewRequest("GET", "/test-path", nil)
 		req.RemoteAddr = "127.0.0.1:12345"
@@ -69,7 +69,7 @@ func TestLoggingMiddleware(t *testing.T) {
 			w.Write([]byte("test response"))
 		})
 
-		middleware := NewLogging(nextHandler, *logger)
+		middleware := Logging(nextHandler, *logger)
 
 		req := httptest.NewRequest("GET", "/authenticated-path", nil)
 		req.RemoteAddr = "192.168.1.100:54321"
@@ -115,7 +115,7 @@ func TestLoggingMiddleware(t *testing.T) {
 			w.Write([]byte("forbidden"))
 		})
 
-		middleware := NewLogging(nextHandler, *logger)
+		middleware := Logging(nextHandler, *logger)
 
 		req := httptest.NewRequest("POST", "/forbidden-path", nil)
 		recorder := httptest.NewRecorder()

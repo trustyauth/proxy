@@ -9,35 +9,24 @@ import (
 	"golang.org/x/net/xsrftoken"
 )
 
-type CSRF struct {
-	next http.Handler
-	key  string
-	slog.Logger
-}
-
-func NewCSRF(next http.Handler, key string, logger slog.Logger) *CSRF {
-	return &CSRF{
-		next:   next,
-		key:    key,
-		Logger: logger,
-	}
-}
-
-func (cm *CSRF) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if shouldProtect(r) {
-		err := ValidateCSRFToken(r, cm.key)
-		if err != nil {
-			cm.Logger.Error("failed to validate csrf", "error", err)
-			w.WriteHeader(http.StatusForbidden)
-			return
+// CSRF returns a middleware handler that validates CSRF tokens for state-changing requests
+func CSRF(next http.Handler, key string, logger slog.Logger) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if shouldProtect(r) {
+			err := ValidateCSRFToken(r, key)
+			if err != nil {
+				logger.Error("failed to validate csrf", "error", err)
+				w.WriteHeader(http.StatusForbidden)
+				return
+			}
 		}
-	}
 
-	csrf := NewCSRFToken(cm.key)
-	csrf.SetCookie(w)
-	csrf.SetHeader(w)
+		csrf := NewCSRFToken(key)
+		csrf.SetCookie(w)
+		csrf.SetHeader(w)
 
-	cm.next.ServeHTTP(w, r)
+		next.ServeHTTP(w, r)
+	})
 }
 
 const (

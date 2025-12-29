@@ -19,7 +19,7 @@ func TestAuthMiddleware(t *testing.T) {
 
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	testKey := "test-encryption-key-32-chars!!!!" // exactly 32 bytes
-	middleware := NewAuth(nextHandler, testKey, *logger)
+	middleware := Auth(nextHandler, testKey, *logger)
 
 	t.Run("Valid Email Cookie", func(t *testing.T) {
 		email := "test@example.com"

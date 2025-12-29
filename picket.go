@@ -22,12 +22,13 @@ func NewReverseProxy(origin *url.URL, key string, logger slog.Logger) *ReversePr
 		logger: logger,
 	}
 
-	auth := middleware.NewAuth(*rp, key, logger)
-	csrf := middleware.NewCSRF(auth, key, logger)
-	logging := middleware.NewLogging(csrf, logger)
+	var handler http.Handler = rp
+	handler = middleware.Auth(handler, key, logger)
+	handler = middleware.CSRF(handler, key, logger)
+	handler = middleware.Logging(handler, logger)
 
 	mux := http.NewServeMux()
-	mux.Handle("/", logging)
+	mux.Handle("/", handler)
 
 	rp.Mux = mux
 
