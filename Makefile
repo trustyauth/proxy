@@ -15,3 +15,9 @@ up:
 
 down:
 	docker-compose -f ./etc/docker-compose.yml down
+
+bins:
+	go build -o dist/generate-cookie ./tools/cookie
+
+cookie: bins
+	./dist/generate-cookie
