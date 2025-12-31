@@ -18,6 +18,10 @@ down:
 
 bins:
 	go build -o dist/generate-cookie ./tools/cookie
+	go build -o dist/generate-jwt ./tools/jwt
 
 cookie: bins
 	./dist/generate-cookie
+
+jwt: bins
+	./dist/generate-jwt
