@@ -3,21 +3,26 @@ package proxy
 import (
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"testing"
-
-	"log/slog"
 
 	"github.com/trustyauth/proxy/internal/crypto"
 	"github.com/trustyauth/proxy/internal/middleware"
 )
 
 func TestNewReverseProxy(t *testing.T) {
-	originURL, _ := url.Parse("http://example.com")
-	testKey := "test-key-with-exactly-32-chars!!" // exactly 32 bytes
-	proxy := NewReverseProxy(originURL, testKey, *slog.Default())
+	config := &Config{
+		Origin:   "http://example.com",
+		Key:      "test-key-with-exactly-32-chars!!", // exactly 32 bytes
+		TASecret: "test-jwt-secret",
+		Domain:   "example.com",
+	}
+	proxy, err := NewReverseProxy(config, *slog.Default())
+	if err != nil {
+		t.Fatalf("NewReverseProxy failed: %v", err)
+	}
 
 	if proxy.origin.String() != "http://example.com" {
 		t.Errorf("expected origin to be http://example.com, got %s", proxy.origin.String())
@@ -40,10 +45,18 @@ func TestReverseProxy_ServeHTTP(t *testing.T) {
 	}))
 	defer originServer.Close()
 
-	originURL, _ := url.Parse(originServer.URL)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	testKey := "test-key-with-exactly-32-chars!!" // exactly 32 bytes
-	proxy := NewReverseProxy(originURL, testKey, *logger)
+	config := &Config{
+		Origin:   originServer.URL,
+		Key:      testKey,
+		TASecret: "test-jwt-secret",
+		Domain:   "example.com",
+	}
+	proxy, err := NewReverseProxy(config, *logger)
+	if err != nil {
+		t.Fatalf("NewReverseProxy failed: %v", err)
+	}
 
 	t.Run("Valid Request", func(t *testing.T) {
 		email := "test@example.com"
@@ -95,10 +108,18 @@ func TestReverseProxy_WithMiddleware(t *testing.T) {
 	}))
 	defer originServer.Close()
 
-	originURL, _ := url.Parse(originServer.URL)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	testKey := "test-key-with-exactly-32-chars!!" // exactly 32 bytes
-	proxy := NewReverseProxy(originURL, testKey, *logger)
+	config := &Config{
+		Origin:   originServer.URL,
+		Key:      testKey,
+		TASecret: "test-jwt-secret",
+		Domain:   "example.com",
+	}
+	proxy, err := NewReverseProxy(config, *logger)
+	if err != nil {
+		t.Fatalf("NewReverseProxy failed: %v", err)
+	}
 
 	t.Run("Proxies Authenticated Request", func(t *testing.T) {
 		email := "test@example.com"
