@@ -6,7 +6,7 @@ services:
       dockerfile: Dockerfile
     container_name: ta-proxy
     ports:
-      - "80:80"
+      - "8888:8888"
     volumes:
       - ./trustyauth-docker.yml:/etc/trustyauth.yml
     command: ["-config", "/etc/trustyauth.yml"]

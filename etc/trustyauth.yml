@@ -1,3 +1,5 @@
 addr: :80
 origin: http://localhost:5678
 key: test-encryption-key-is-full-length!
+ta_secret: example-jwt-signing-secret-key-32b
+domain: example.com

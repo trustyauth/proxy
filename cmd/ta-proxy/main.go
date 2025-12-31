@@ -7,7 +7,6 @@ import (
 	"log"
 	"log/slog"
 	"net/http"
-	"net/url"
 	"os"
 	"os/signal"
 	"syscall"
@@ -42,9 +41,16 @@ func run(ctx context.Context, args []string) error {
 		return fmt.Errorf("must specify origin server")
 	}
 
-	// Validate key length for security
 	if len(config.Key) < crypto.MinKeyLength {
-		return fmt.Errorf("encryption key must be at least %d bytes (current: %d bytes)", crypto.MinKeyLength, len(config.Key))
+		return fmt.Errorf("key must be at least %d bytes (current: %d bytes)", crypto.MinKeyLength, len(config.Key))
+	}
+
+	if config.TASecret == "" {
+		return fmt.Errorf("must specify ta_secret for JWT authentication")
+	}
+
+	if config.Domain == "" {
+		return fmt.Errorf("must specify domain for JWT hostname validation")
 	}
 
 	server, err := NewServer(&config)
@@ -82,11 +88,8 @@ type Config struct {
 	// Bind addr
 	Addr string `yaml:"addr"`
 
-	// Origin server to forward requests to
-	Origin string `yaml:"origin"`
-
-	// Signing key
-	Key string `yaml:"key"`
+	// Proxy configuration (embedded)
+	proxy.Config `yaml:",inline"`
 }
 
 // ReadConfig unmarshals the config from a file
@@ -109,13 +112,12 @@ func ReadConfig(filename string) (c Config, err error) {
 
 // NewServer returns a new ServeMux with the appropriate handlers registered
 func NewServer(config *Config) (*http.Server, error) {
-	originServerURL, err := url.Parse(config.Origin)
+	rp, err := proxy.NewReverseProxy(&config.Config, *slog.Default())
 	if err != nil {
-		slog.Error("failed to parse origin", "error", err)
+		slog.Error("failed to create reverse proxy", "error", err)
 		return nil, err
 	}
 
-	rp := proxy.NewReverseProxy(originServerURL, config.Key, *slog.Default())
 	server := http.Server{
 		Addr:    config.Addr,
 		Handler: rp.Mux,
