@@ -3,9 +3,9 @@ package middleware
 import (
 	"log/slog"
 	"net/http"
-	"net/mail"
 
 	"github.com/trustyauth/proxy/internal/crypto"
+	"github.com/trustyauth/proxy/internal/email"
 )
 
 const (
@@ -30,7 +30,7 @@ func Auth(next http.Handler, key string, logger slog.Logger) http.Handler {
 			return
 		}
 
-		if !isValidEmail(decryptedValue) {
+		if !email.IsValid(decryptedValue) {
 			logger.Error("invalid email in ta cookie", "value", decryptedValue, "path", r.URL.Path, "ip", r.RemoteAddr)
 			w.WriteHeader(http.StatusForbidden)
 			return
@@ -40,9 +40,4 @@ func Auth(next http.Handler, key string, logger slog.Logger) http.Handler {
 		r.Header.Set(AuthHeader, decryptedValue)
 		next.ServeHTTP(w, r)
 	})
-}
-
-func isValidEmail(email string) bool {
-	_, err := mail.ParseAddress(email)
-	return err == nil
 }

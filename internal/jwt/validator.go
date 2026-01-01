@@ -2,11 +2,11 @@ package jwt
 
 import (
 	"fmt"
-	"net/mail"
 	"net/url"
 	"strings"
 
 	gojwt "github.com/golang-jwt/jwt/v5"
+	"github.com/trustyauth/proxy/internal/email"
 )
 
 // Validator handles JWT validation.
@@ -59,16 +59,11 @@ func (v *Validator) ValidateToken(tokenString string) (*Claims, error) {
 		return nil, fmt.Errorf("missing sub claim")
 	}
 
-	if !isValidEmail(claims.Subject) {
+	if !email.IsValid(claims.Subject) {
 		return nil, fmt.Errorf("invalid email in sub claim: %s", claims.Subject)
 	}
 
 	return claims, nil
-}
-
-func isValidEmail(email string) bool {
-	_, err := mail.ParseAddress(email)
-	return err == nil
 }
 
 // normalizeHostname converts a hostname to lowercase and removes any trailing dot.
