@@ -57,6 +57,11 @@ func TestAuthHandler_Success(t *testing.T) {
 		t.Errorf("expected redirect to %s, got %s", claims.HTU, location)
 	}
 
+	referrerPolicy := w.Header().Get(HeaderReferrerPolicy)
+	if referrerPolicy != HeaderReferrerPolicyValue {
+		t.Errorf("expected %s header to be %q, got %q", HeaderReferrerPolicy, HeaderReferrerPolicyValue, referrerPolicy)
+	}
+
 	cookies := w.Result().Cookies()
 	var taCookie *http.Cookie
 	for _, c := range cookies {

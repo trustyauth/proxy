@@ -13,6 +13,11 @@ import (
 	"github.com/trustyauth/proxy/internal/jwt"
 )
 
+const (
+	HeaderReferrerPolicy      = "Referrer-Policy"
+	HeaderReferrerPolicyValue = "no-referrer"
+)
+
 // AuthHandler handles JWT token validation and sets authentication cookies.
 type AuthHandler struct {
 	validator *jwt.Validator
@@ -80,6 +85,7 @@ func (h *AuthHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	h.logger.Info("authentication successful", "email", claims.Subject, "redirect", claims.HTU, "ip", r.RemoteAddr)
 
+	w.Header().Set(HeaderReferrerPolicy, HeaderReferrerPolicyValue)
 	http.Redirect(w, r, claims.HTU, http.StatusFound)
 }
 
