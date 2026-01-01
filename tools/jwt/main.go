@@ -18,7 +18,7 @@ func main() {
 	email := flag.String("email", "test@example.com", "User email for sub claim")
 	htu := flag.String("htu", "http://app.localhost:8888/dashboard", "Redirect URL for htu claim")
 	domain := flag.String("domain", "app.localhost", "Domain to use in htu hostname")
-	expireMinutes := flag.Int("expire", 5, "Token expiration in minutes (0 for expired token)")
+	expireSeconds := flag.Int("expire", 60, "Token expiration in seconds (0 for expired token)")
 	flag.Parse()
 
 	// If domain is specified and doesn't match default, update htu to use the domain
@@ -27,8 +27,8 @@ func main() {
 	}
 
 	var expiresAt *gojwt.NumericDate
-	if *expireMinutes > 0 {
-		expiresAt = gojwt.NewNumericDate(time.Now().Add(time.Duration(*expireMinutes) * time.Minute))
+	if *expireSeconds > 0 {
+		expiresAt = gojwt.NewNumericDate(time.Now().Add(time.Duration(*expireSeconds) * time.Second))
 	} else {
 		// Create expired token (1 hour in the past)
 		expiresAt = gojwt.NewNumericDate(time.Now().Add(-1 * time.Hour))
