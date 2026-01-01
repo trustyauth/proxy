@@ -16,6 +16,9 @@ up:
 down:
 	docker-compose -f ./etc/docker-compose.yml down
 
+devlogs:
+	docker logs -f ta-proxy
+
 bins:
 	go build -o dist/generate-cookie ./tools/cookie
 	go build -o dist/generate-jwt ./tools/jwt
