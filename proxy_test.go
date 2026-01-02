@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/trustyauth/proxy/internal/cookie"
 	"github.com/trustyauth/proxy/internal/crypto"
 	"github.com/trustyauth/proxy/internal/middleware"
 )
@@ -128,7 +129,7 @@ func TestReverseProxy_WithMiddleware(t *testing.T) {
 
 		req := httptest.NewRequest("GET", "/test", nil)
 		req.Header.Set(middleware.CSRFHeader, csrfToken.Token)
-		req.AddCookie(&http.Cookie{Name: middleware.XSRFCookie, Value: csrfToken.Token})
+		req.AddCookie(&http.Cookie{Name: cookie.XSRF, Value: csrfToken.Token})
 		req.AddCookie(&http.Cookie{Name: "ta", Value: encryptedEmail})
 		recorder := httptest.NewRecorder()
 
@@ -139,16 +140,16 @@ func TestReverseProxy_WithMiddleware(t *testing.T) {
 			t.Errorf("expected status code to be 200, got %d", resp.StatusCode)
 		}
 
-		cookie := resp.Cookies()
-		if len(cookie) != 1 {
-			t.Fatalf("expected 1 cookie, got %d", len(cookie))
+		cookies := resp.Cookies()
+		if len(cookies) != 1 {
+			t.Fatalf("expected 1 cookie, got %d", len(cookies))
 		}
 
-		if cookie[0].Name != middleware.XSRFCookie {
-			t.Errorf("expected cookie name to be %s, got %s", middleware.XSRFCookie, cookie[0].Name)
+		if cookies[0].Name != cookie.XSRF {
+			t.Errorf("expected cookie name to be %s, got %s", cookie.XSRF, cookies[0].Name)
 		}
 
-		if cookie[0].Value == "" {
+		if cookies[0].Value == "" {
 			t.Errorf("expected cookie value to be non-empty")
 		}
 
@@ -156,7 +157,7 @@ func TestReverseProxy_WithMiddleware(t *testing.T) {
 			t.Errorf("expected header to be non-empty")
 		}
 
-		if resp.Header.Get(middleware.CSRFHeader) != cookie[0].Value {
+		if resp.Header.Get(middleware.CSRFHeader) != cookies[0].Value {
 			t.Errorf("expected header to match cookie")
 		}
 
@@ -177,7 +178,7 @@ func TestReverseProxy_WithMiddleware(t *testing.T) {
 		req := httptest.NewRequest("POST", "/test", nil)
 		req.AddCookie(&http.Cookie{Name: "ta", Value: encryptedEmail})
 		req.Header.Set(middleware.CSRFHeader, "invalid-csrf-token")
-		req.AddCookie(&http.Cookie{Name: middleware.XSRFCookie, Value: "invalid-csrf-cookie"})
+		req.AddCookie(&http.Cookie{Name: cookie.XSRF, Value: "invalid-csrf-cookie"})
 		recorder := httptest.NewRecorder()
 
 		proxy.Mux.ServeHTTP(recorder, req)

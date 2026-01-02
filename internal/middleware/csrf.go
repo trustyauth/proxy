@@ -7,6 +7,8 @@ import (
 	"net/http"
 
 	"golang.org/x/net/xsrftoken"
+
+	"github.com/trustyauth/proxy/internal/cookie"
 )
 
 // CSRF returns a middleware handler that validates CSRF tokens for state-changing requests
@@ -29,10 +31,7 @@ func CSRF(next http.Handler, key string, logger slog.Logger) http.Handler {
 	})
 }
 
-const (
-	XSRFCookie = "XSRF-TOKEN"
-	CSRFHeader = "X-CSRF-TOKEN"
-)
+const CSRFHeader = "X-CSRF-TOKEN"
 
 type CSRFToken struct {
 	Token string
@@ -44,15 +43,7 @@ func NewCSRFToken(key string) *CSRFToken {
 }
 
 func (csrf *CSRFToken) SetCookie(w http.ResponseWriter) {
-	cookie := http.Cookie{
-		Name:     XSRFCookie,
-		Value:    csrf.Token,
-		Path:     "/",
-		Secure:   true,
-		SameSite: http.SameSiteLaxMode,
-		HttpOnly: true,
-	}
-	http.SetCookie(w, &cookie)
+	http.SetCookie(w, cookie.New(cookie.XSRF, csrf.Token))
 }
 
 func (csrf *CSRFToken) SetHeader(w http.ResponseWriter) {
@@ -66,13 +57,13 @@ func ValidateCSRFToken(req *http.Request, key string) error {
 		return fmt.Errorf("missing %s header", CSRFHeader)
 	}
 
-	csrfCookie, err := req.Cookie(XSRFCookie)
+	csrfCookie, err := req.Cookie(cookie.XSRF)
 	if err != nil {
 		return err
 	}
 
 	if csrfCookie == nil {
-		return fmt.Errorf("missing %s cookie", XSRFCookie)
+		return fmt.Errorf("missing %s cookie", cookie.XSRF)
 	}
 
 	if csrfHeader != csrfCookie.Value {

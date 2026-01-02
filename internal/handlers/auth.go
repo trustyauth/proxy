@@ -9,6 +9,7 @@ import (
 
 	"golang.org/x/net/publicsuffix"
 
+	"github.com/trustyauth/proxy/internal/cookie"
 	"github.com/trustyauth/proxy/internal/crypto"
 	"github.com/trustyauth/proxy/internal/jwt"
 )
@@ -72,16 +73,7 @@ func (h *AuthHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cookie := &http.Cookie{
-		Name:     "ta",
-		Value:    encryptedEmail,
-		Path:     "/",
-		Domain:   baseDomain,
-		Secure:   true,
-		HttpOnly: true,
-		SameSite: http.SameSiteLaxMode,
-	}
-	http.SetCookie(w, cookie)
+	http.SetCookie(w, cookie.WithDomain(cookie.New(cookie.Auth, encryptedEmail), baseDomain))
 
 	h.logger.Info("authentication successful", "email", claims.Subject, "redirect", claims.HTU, "ip", r.RemoteAddr)
 

@@ -8,6 +8,8 @@ import (
 	"testing"
 
 	"golang.org/x/net/xsrftoken"
+
+	"github.com/trustyauth/proxy/internal/cookie"
 )
 
 func TestCSRFMIddleware(t *testing.T) {
@@ -38,7 +40,7 @@ func TestCSRFMIddleware(t *testing.T) {
 
 			req := httptest.NewRequest(tt.method, tt.path, tt.body)
 			req.Header.Set(CSRFHeader, token.Token)
-			req.AddCookie(&http.Cookie{Name: XSRFCookie, Value: token.Token})
+			req.AddCookie(&http.Cookie{Name: cookie.XSRF, Value: token.Token})
 			recorder := httptest.NewRecorder()
 
 			middleware.ServeHTTP(recorder, req)
@@ -55,7 +57,7 @@ func TestCSRFMIddleware(t *testing.T) {
 	t.Run("Invalid CSRF Token", func(t *testing.T) {
 		req := httptest.NewRequest("POST", "/test", nil)
 		req.Header.Set(CSRFHeader, "invalid-csrf-token")
-		req.AddCookie(&http.Cookie{Name: XSRFCookie, Value: "test-csrf-token"})
+		req.AddCookie(&http.Cookie{Name: cookie.XSRF, Value: "test-csrf-token"})
 		recorder := httptest.NewRecorder()
 
 		middleware.ServeHTTP(recorder, req)
@@ -68,7 +70,7 @@ func TestCSRFMIddleware(t *testing.T) {
 
 	t.Run("Missing CSRF Header", func(t *testing.T) {
 		req := httptest.NewRequest("POST", "/test", nil)
-		req.AddCookie(&http.Cookie{Name: XSRFCookie, Value: "test-csrf-token"})
+		req.AddCookie(&http.Cookie{Name: cookie.XSRF, Value: "test-csrf-token"})
 		recorder := httptest.NewRecorder()
 
 		middleware.ServeHTTP(recorder, req)
@@ -101,21 +103,21 @@ func assertValidCSRFResponse(t *testing.T, resp *http.Response) {
 		t.Errorf("expected X-CSRF-TOKEN header to be set")
 	}
 
-	cookie := resp.Cookies()
-	if len(cookie) != 1 {
-		t.Fatalf("expected 1 cookie, got %d", len(cookie))
+	cookies := resp.Cookies()
+	if len(cookies) != 1 {
+		t.Fatalf("expected 1 cookie, got %d", len(cookies))
 	}
 
-	if cookie[0].Name != XSRFCookie {
-		t.Errorf("expected cookie name to be %s, got %s", XSRFCookie, cookie[0].Name)
+	if cookies[0].Name != cookie.XSRF {
+		t.Errorf("expected cookie name to be %s, got %s", cookie.XSRF, cookies[0].Name)
 	}
 
-	if cookie[0].Value == "" {
+	if cookies[0].Value == "" {
 		t.Errorf("expected cookie value to be non-empty")
 	}
 
-	if cookie[0].Value != header {
-		t.Errorf("expected XSRF-TOKEN cookie value to match X-CSRF-TOKEN header, want %s, got %s", header, cookie[0].Value)
+	if cookies[0].Value != header {
+		t.Errorf("expected XSRF-TOKEN cookie value to match X-CSRF-TOKEN header, want %s, got %s", header, cookies[0].Value)
 	}
 }
 
@@ -144,7 +146,7 @@ func TestValidateCSRFToken(t *testing.T) {
 	t.Run("Valid Token", func(t *testing.T) {
 		req := httptest.NewRequest("POST", "/", nil)
 		req.Header.Set(CSRFHeader, csrfToken.Token)
-		req.AddCookie(&http.Cookie{Name: XSRFCookie, Value: csrfToken.Token})
+		req.AddCookie(&http.Cookie{Name: cookie.XSRF, Value: csrfToken.Token})
 
 		err := ValidateCSRFToken(req, key)
 		if err != nil {
@@ -155,7 +157,7 @@ func TestValidateCSRFToken(t *testing.T) {
 	t.Run("Invalid Token", func(t *testing.T) {
 		req := httptest.NewRequest("POST", "/", nil)
 		req.Header.Set(CSRFHeader, "invalid-token")
-		req.AddCookie(&http.Cookie{Name: XSRFCookie, Value: csrfToken.Token})
+		req.AddCookie(&http.Cookie{Name: cookie.XSRF, Value: csrfToken.Token})
 
 		err := ValidateCSRFToken(req, key)
 		if err == nil {
@@ -165,7 +167,7 @@ func TestValidateCSRFToken(t *testing.T) {
 
 	t.Run("Missing Header", func(t *testing.T) {
 		req := httptest.NewRequest("POST", "/", nil)
-		req.AddCookie(&http.Cookie{Name: XSRFCookie, Value: csrfToken.Token})
+		req.AddCookie(&http.Cookie{Name: cookie.XSRF, Value: csrfToken.Token})
 
 		err := ValidateCSRFToken(req, key)
 		if err == nil {
@@ -191,17 +193,17 @@ func TestSetCookie(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	csrfToken.SetCookie(recorder)
 
-	cookie := recorder.Result().Cookies()
-	if len(cookie) != 1 {
-		t.Fatalf("expected 1 cookie, got %d", len(cookie))
+	cookies := recorder.Result().Cookies()
+	if len(cookies) != 1 {
+		t.Fatalf("expected 1 cookie, got %d", len(cookies))
 	}
 
-	if cookie[0].Name != XSRFCookie {
-		t.Errorf("expected cookie name to be %s, got %s", XSRFCookie, cookie[0].Name)
+	if cookies[0].Name != cookie.XSRF {
+		t.Errorf("expected cookie name to be %s, got %s", cookie.XSRF, cookies[0].Name)
 	}
 
-	if cookie[0].Value != csrfToken.Token {
-		t.Errorf("expected cookie value to be %s, got %s", csrfToken.Token, cookie[0].Value)
+	if cookies[0].Value != csrfToken.Token {
+		t.Errorf("expected cookie value to be %s, got %s", csrfToken.Token, cookies[0].Value)
 	}
 }
 
