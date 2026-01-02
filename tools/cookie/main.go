@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"log"
 
+	"golang.org/x/net/xsrftoken"
+
+	"github.com/trustyauth/proxy/internal/cookie"
 	"github.com/trustyauth/proxy/internal/crypto"
 )
 
@@ -18,8 +21,14 @@ func main() {
 		log.Fatalf("Failed to encrypt email: %v", err)
 	}
 
+	csrfToken := xsrftoken.Generate(*key, "", "")
+
 	fmt.Printf("Email: %s\n", *email)
 	fmt.Printf("Encrypted cookie value: %s\n", encrypted)
-	fmt.Printf("\nUsage with curl:\n")
-	fmt.Printf("curl -H \"Cookie: ta=%s\" http://localhost:80\n", encrypted)
+	fmt.Printf("CSRF token: %s\n", csrfToken)
+	fmt.Printf("\nGET request:\n")
+	fmt.Printf("curl -H \"Cookie: %s=%s\" http://app.localhost:8888\n", cookie.Auth, encrypted)
+	fmt.Printf("\nPOST request:\n")
+	fmt.Printf("curl -X POST -H \"Cookie: %s=%s; %s=%s\" -H \"X-CSRF-TOKEN: %s\" http://app.localhost:8888\n",
+		cookie.Auth, encrypted, cookie.XSRF, csrfToken, csrfToken)
 }
