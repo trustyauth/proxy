@@ -14,7 +14,6 @@ import (
 
 	"github.com/trustyauth/proxy"
 	"github.com/trustyauth/proxy/internal/crypto"
-	"gopkg.in/yaml.v3"
 )
 
 func main() {
@@ -81,33 +80,6 @@ func run(ctx context.Context, args []string) error {
 	}
 
 	return nil
-}
-
-// Config represents a trustyauth configuration file
-type Config struct {
-	// Bind addr
-	Addr string `yaml:"addr"`
-
-	// Proxy configuration (embedded)
-	proxy.Config `yaml:",inline"`
-}
-
-// ReadConfig unmarshals the config from a file
-func ReadConfig(filename string) (c Config, err error) {
-	buf, err := os.ReadFile(filename)
-	if os.IsNotExist(err) {
-		err = fmt.Errorf("missing config file: %s", filename)
-		return
-	} else if err != nil {
-		return
-	}
-
-	err = yaml.Unmarshal(buf, &c)
-	if err != nil {
-		return
-	}
-
-	return
 }
 
 // NewServer returns a new ServeMux with the appropriate handlers registered
