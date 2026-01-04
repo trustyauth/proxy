@@ -56,6 +56,37 @@ type ACMEConfig struct {
 	Email string `yaml:"email"`
 }
 
+// Validate checks that the TLS configuration is valid for the specified mode.
+func (c *TLSConfig) Validate() error {
+	switch c.Mode {
+	case "manual":
+		if c.Manual == nil {
+			return fmt.Errorf("tls.manual config required when mode is 'manual'")
+		}
+		if c.Manual.Cert == "" {
+			return fmt.Errorf("tls.manual.cert is required")
+		}
+		if c.Manual.Key == "" {
+			return fmt.Errorf("tls.manual.key is required")
+		}
+	case "acme":
+		if c.ACME == nil {
+			return fmt.Errorf("tls.acme config required when mode is 'acme'")
+		}
+		if len(c.ACME.Domains) == 0 {
+			return fmt.Errorf("tls.acme.domains is required")
+		}
+		if c.ACME.CacheDir == "" {
+			return fmt.Errorf("tls.acme.cache_dir is required")
+		}
+	case "off", "":
+		// Valid, no additional config needed
+	default:
+		return fmt.Errorf("invalid tls.mode: %q (must be 'off', 'manual', or 'acme')", c.Mode)
+	}
+	return nil
+}
+
 // ReadConfig unmarshals the config from a file.
 func ReadConfig(filename string) (c Config, err error) {
 	buf, err := os.ReadFile(filename)

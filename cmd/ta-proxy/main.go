@@ -36,6 +36,10 @@ func run(ctx context.Context, args []string) error {
 		return err
 	}
 
+	if err := config.TLS.Validate(); err != nil {
+		return err
+	}
+
 	if config.Origin == "" {
 		return fmt.Errorf("must specify origin server")
 	}
