@@ -16,14 +16,26 @@ type Claims struct {
 func main() {
 	secret := flag.String("secret", "example-jwt-signing-secret-key-32b", "JWT signing secret")
 	email := flag.String("email", "test@example.com", "User email for sub claim")
-	htu := flag.String("htu", "http://app.localhost:8888/dashboard", "Redirect URL for htu claim")
+	htu := flag.String("htu", "", "Redirect URL for htu claim (auto-generated if empty)")
 	domain := flag.String("domain", "app.localhost", "Domain to use in htu hostname")
 	expireSeconds := flag.Int("expire", 60, "Token expiration in seconds (0 for expired token)")
+	tls := flag.Bool("tls", false, "Use HTTPS scheme and port 443")
 	flag.Parse()
 
-	// If domain is specified and doesn't match default, update htu to use the domain
-	if *domain != "app.localhost" {
-		*htu = fmt.Sprintf("http://%s", *domain)
+	// Set scheme, port, and curl flags based on TLS mode
+	scheme := "http"
+	port := "8888"
+	curlFlags := "-v"
+	if *tls {
+		scheme = "https"
+		port = "443"
+		curlFlags = "-vk"
+	}
+	baseURL := fmt.Sprintf("%s://%s:%s", scheme, *domain, port)
+
+	// Generate htu if not specified
+	if *htu == "" {
+		*htu = fmt.Sprintf("%s/dashboard", baseURL)
 	}
 
 	var expiresAt *gojwt.NumericDate
@@ -61,7 +73,7 @@ func main() {
 	fmt.Println(tokenString)
 	fmt.Println("---")
 	fmt.Printf("\nTest URL:\n")
-	fmt.Printf("http://app.localhost:8888/auth?token=%s\n", tokenString)
+	fmt.Printf("%s/auth?token=%s\n", baseURL, tokenString)
 	fmt.Printf("\nExample curl command:\n")
-	fmt.Printf("curl -v \"http://app.localhost:8888/auth?token=%s\"\n", tokenString)
+	fmt.Printf("curl %s \"%s/auth?token=%s\"\n", curlFlags, baseURL, tokenString)
 }

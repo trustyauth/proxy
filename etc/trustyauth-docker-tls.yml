@@ -1,7 +1,11 @@
-addr: :8888
+addr: :443
 origin: http://echo-server:5678
 key: test-encryption-key-is-full-length!
 ta_secret: example-jwt-signing-secret-key-32b
 domain: app.localhost
 tls:
-  mode: "off"
+  mode: "manual"
+  manual:
+    cert: "/etc/ssl/cert.pem"
+    key: "/etc/ssl/key.pem"
+  http_redirect: ":80"

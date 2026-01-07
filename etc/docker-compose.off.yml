@@ -1,0 +1,16 @@
+# TLS mode: off (HTTP only, external TLS termination)
+services:
+  ta-proxy:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    container_name: ta-proxy
+    ports:
+      - "8888:8888"
+    volumes:
+      - ./trustyauth-docker.yml:/etc/trustyauth.yml:ro
+    command: ["-config", "/etc/trustyauth.yml"]
+    depends_on:
+      - echo-server
+    networks:
+      - ta-network
