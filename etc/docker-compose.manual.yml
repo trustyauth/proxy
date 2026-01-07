@@ -1,0 +1,19 @@
+# TLS mode: manual (certificate files)
+# Requires: make certs (to generate self-signed certificates)
+services:
+  ta-proxy:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    container_name: ta-proxy
+    ports:
+      - "443:443"
+      - "80:80"
+    volumes:
+      - ./trustyauth-docker-tls.yml:/etc/trustyauth.yml:ro
+      - ./certs:/etc/ssl:ro
+    command: ["-config", "/etc/trustyauth.yml"]
+    depends_on:
+      - echo-server
+    networks:
+      - ta-network

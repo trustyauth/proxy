@@ -14,6 +14,7 @@ import (
 
 	"github.com/trustyauth/proxy"
 	"github.com/trustyauth/proxy/internal/crypto"
+	"golang.org/x/crypto/acme/autocert"
 )
 
 func main() {
@@ -86,18 +87,56 @@ func run(ctx context.Context, args []string) error {
 	return nil
 }
 
-// NewServer returns a new ServeMux with the appropriate handlers registered
-func NewServer(config *Config) (*http.Server, error) {
+// Server wraps the HTTP server with TLS configuration and lifecycle management.
+type Server struct {
+	server         *http.Server
+	redirectServer *http.Server
+	acmeManager    *autocert.Manager
+	config         *Config
+}
+
+// NewServer returns a new Server with the appropriate handlers registered.
+func NewServer(config *Config) (*Server, error) {
 	rp, err := proxy.NewReverseProxy(&config.Config, *slog.Default())
 	if err != nil {
 		slog.Error("failed to create reverse proxy", "error", err)
 		return nil, err
 	}
 
-	server := http.Server{
+	httpServer := &http.Server{
 		Addr:    config.Addr,
 		Handler: rp.Mux,
 	}
 
-	return &server, nil
+	return &Server{
+		server: httpServer,
+		config: config,
+	}, nil
+}
+
+// ListenAndServe starts the server based on the configured TLS mode.
+func (s *Server) ListenAndServe() error {
+	switch s.config.TLS.Mode {
+	case "manual":
+		slog.Info("starting server with manual TLS",
+			"addr", s.config.Addr,
+			"cert", s.config.TLS.Manual.Cert,
+			"key", s.config.TLS.Manual.Key,
+		)
+		return s.server.ListenAndServeTLS(
+			s.config.TLS.Manual.Cert,
+			s.config.TLS.Manual.Key,
+		)
+	case "acme":
+		return fmt.Errorf("acme mode is not yet implemented")
+	default:
+		// "off" or empty string - plain HTTP
+		slog.Info("starting server without TLS", "addr", s.config.Addr)
+		return s.server.ListenAndServe()
+	}
+}
+
+// Shutdown gracefully shuts down the server.
+func (s *Server) Shutdown(ctx context.Context) error {
+	return s.server.Shutdown(ctx)
 }

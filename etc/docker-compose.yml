@@ -1,20 +1,6 @@
-# Example Docker Compose file for TrustyAuth proxy with an echo server
+# Base Docker Compose file with shared services
+# Use with override files: docker-compose -f docker-compose.yml -f docker-compose.<mode>.yml
 services:
-  ta-proxy:
-    build:
-      context: ..
-      dockerfile: Dockerfile
-    container_name: ta-proxy
-    ports:
-      - "8888:8888"
-    volumes:
-      - ./trustyauth-docker.yml:/etc/trustyauth.yml
-    command: ["-config", "/etc/trustyauth.yml"]
-    depends_on:
-      - echo-server
-    networks:
-      - ta-network
-
   echo-server:
     image: hashicorp/http-echo
     container_name: echo-server
