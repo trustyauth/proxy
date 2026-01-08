@@ -1,0 +1,30 @@
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+name: Commit
+jobs:
+  build:
+    name: Build & Unit Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: "go.mod"
+
+      - run: go install ./cmd/ta-proxy
+
+      - run: go build -o /dev/null ./tools/cookie
+      - run: go build -o /dev/null ./tools/jwt
+
+      - run: go test -v .
+      - run: go test -v ./internal/...
+      - run: go test -v ./cmd/ta-proxy/...
