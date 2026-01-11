@@ -2,13 +2,16 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"log"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -114,8 +117,71 @@ func NewServer(config *Config) (*Server, error) {
 	}, nil
 }
 
+func (s *Server) tlsPort() string {
+	_, port, err := net.SplitHostPort(s.config.Addr)
+	if err != nil {
+		// Addr might be just ":443" - strip leading colon
+		return strings.TrimPrefix(s.config.Addr, ":")
+	}
+	return port
+}
+
+func (s *Server) startHTTPRedirect() error {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Extract hostname, stripping port if present
+		host := r.Host
+		if host == "" {
+			host = r.URL.Host
+		}
+		if host == "" {
+			host = s.config.Domain
+		}
+		if h, _, err := net.SplitHostPort(host); err == nil {
+			host = h
+		}
+
+		// Build target URL; append port if non-standard
+		target := "https://" + host
+		if port := s.tlsPort(); port != "443" && port != "" {
+			target += ":" + port
+		}
+		target += r.URL.RequestURI()
+
+		slog.Info("redirecting to HTTPS",
+			"from", r.URL.RequestURI(),
+			"to", target,
+			"remote_addr", r.RemoteAddr,
+		)
+
+		http.Redirect(w, r, target, http.StatusPermanentRedirect)
+	})
+
+	listener, err := net.Listen("tcp", s.config.TLS.HTTPRedirect)
+	if err != nil {
+		return err
+	}
+
+	s.redirectServer = &http.Server{Addr: s.config.TLS.HTTPRedirect, Handler: handler}
+
+	go func() {
+		slog.Info("starting HTTP redirect listener", "addr", s.config.TLS.HTTPRedirect)
+		if err := s.redirectServer.Serve(listener); err != nil && err != http.ErrServerClosed {
+			slog.Error("HTTP redirect listener failed", "error", err)
+		}
+	}()
+
+	return nil
+}
+
 // ListenAndServe starts the server based on the configured TLS mode.
 func (s *Server) ListenAndServe() error {
+	// Start HTTP redirect listener if configured (for TLS modes)
+	if s.config.TLS.Mode == "manual" && s.config.TLS.HTTPRedirect != "" {
+		if err := s.startHTTPRedirect(); err != nil {
+			return fmt.Errorf("failed to start HTTP redirect listener: %w", err)
+		}
+	}
+
 	switch s.config.TLS.Mode {
 	case "manual":
 		slog.Info("starting server with manual TLS",
@@ -136,7 +202,26 @@ func (s *Server) ListenAndServe() error {
 	}
 }
 
-// Shutdown gracefully shuts down the server.
+// Shutdown gracefully shuts down the server and redirect listener.
 func (s *Server) Shutdown(ctx context.Context) error {
-	return s.server.Shutdown(ctx)
+	var errs []error
+
+	// Shutdown redirect server if running
+	if s.redirectServer != nil {
+		slog.Info("shutting down HTTP redirect listener")
+		if err := s.redirectServer.Shutdown(ctx); err != nil {
+			errs = append(errs, fmt.Errorf("redirect server: %w", err))
+		}
+	}
+
+	// Shutdown main server
+	slog.Info("shutting down main server")
+	if err := s.server.Shutdown(ctx); err != nil {
+		errs = append(errs, fmt.Errorf("main server: %w", err))
+	}
+
+	if len(errs) > 0 {
+		return errors.Join(errs...)
+	}
+	return nil
 }
