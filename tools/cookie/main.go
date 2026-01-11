@@ -26,7 +26,7 @@ func main() {
 
 	// Set scheme, port, and curl flags based on TLS mode
 	scheme := "http"
-	port := "8888"
+	port := "80"
 	curlFlags := ""
 	if *tls {
 		scheme = "https"
